@@ -3,7 +3,7 @@
 ## Next
 
 - Run the extracted toolkit from a clean checkout through a fresh migration session; the working private prototype and the refactored public CLI are separate validation stages.
-- Replace assert-based guards with explicit errors; make every final output write atomic and validate more cross-file references.
+- Replace assert-based guards with explicit errors; extend the CLI atomic-publication guarantee to standalone helper scripts and validate more cross-file references.
 - Add synthetic fixtures for full inventory layouts, nested visited worlds, equipment pointers, and DAT edge cases.
 - Automate world visitation and the fresh-game dialogue/cutscene lifecycle without leaving a diagnostic listener enabled.
 - Track object identity and parent transforms consistently; investigate skipped duplicate-name movers/triggers.

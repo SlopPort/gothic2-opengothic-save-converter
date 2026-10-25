@@ -1,6 +1,7 @@
 """Prepare a migration session or finalize a native save. Work-in-progress, format 56 only."""
 from pathlib import Path
-import argparse,json,subprocess,sys,zipfile
+import argparse,json,subprocess,sys,tempfile
+from tools.native_format import publish_archive
 ROOT=Path(__file__).resolve().parent
 
 def run(*args):
@@ -17,7 +18,9 @@ def main():
             q.add_argument('--save-dir',type=Path,required=True);q.add_argument('--encoding',default='cp1250')
         else:
             q.add_argument('--native-save',type=Path,required=True);q.add_argument('--output',type=Path,required=True)
-    a=p.parse_args();w=a.workspace.resolve();w.mkdir(parents=True,exist_ok=True)
+    a=p.parse_args()
+    if sys.flags.optimize:raise RuntimeError('Run without -O: migration helpers still require assertion checks')
+    w=a.workspace.resolve();w.mkdir(parents=True,exist_ok=True)
     def tool(name):
         path=a.tools_dir.resolve()/(name+('.exe' if sys.platform=='win32' else ''))
         if not path.is_file():raise FileNotFoundError(path)
@@ -39,9 +42,13 @@ def main():
     else:
         if a.output.exists():raise FileExistsError('Output exists; choose a new filename')
         if a.native_save.resolve()==a.output.resolve():raise ValueError('Input and output must differ')
-        py('finalize_save.py','--workspace',w,'--input',a.native_save.resolve(),'--output',w/'normalized.sav')
+        # Unique intermediates prevent concurrent runs from sharing partial archives.
+        staging=Path(tempfile.mkdtemp(prefix='finalize-',dir=w))
+        py('finalize_save.py','--workspace',w,'--input',a.native_save.resolve(),'--output',staging/'normalized.sav')
         # First pass discovers item definitions absent from the native session.
-        command=[sys.executable,ROOT/'tools/complete_world_save.py',*common,'--input',w/'normalized.sav','--output',w/'world-restored.sav']
+        command=[sys.executable,ROOT/'tools/complete_world_save.py',*common,'--input',staging/'normalized.sav','--output',staging/'world-restored.sav']
+        coverage=w/'world-item-coverage.json'
+        coverage.unlink(missing_ok=True)
         result=subprocess.run([str(x) for x in command])
         if result.returncode:
             coverage=w/'world-item-coverage.json'
@@ -49,9 +56,8 @@ def main():
             if not missing:raise RuntimeError('World conversion failed; see the error above')
             run(tool('export_items'),a.game_dir.resolve()/'_work/Data/Scripts/_compiled/GOTHIC.DAT',w/'item-templates',*missing)
             run(*command)
-        py('restore_equipment.py',*common,'--input',w/'world-restored.sav','--output',a.output.resolve())
-        with zipfile.ZipFile(a.output) as z:
-            if z.testzip() is not None:raise RuntimeError('Output CRC check failed')
+        py('restore_equipment.py',*common,'--input',staging/'world-restored.sav','--output',staging/'candidate.sav')
+        publish_archive(staging/'candidate.sav',a.output.resolve())
         print('Experimental converted save:',a.output.resolve())
         print('Test loading, saving, and reloading in the matching engine before continuing a playthrough.')
 if __name__=='__main__':main()
