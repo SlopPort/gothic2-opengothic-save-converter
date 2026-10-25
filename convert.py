@@ -26,7 +26,6 @@ def main():
     if a.command=='validate':
         print(json.dumps(validate_save(a.native_save.read_bytes()),indent=2))
         return
-    if sys.flags.optimize:raise RuntimeError('Run without -O: migration helpers still require assertion checks')
     w=a.workspace.resolve();w.mkdir(parents=True,exist_ok=True)
     def tool(name):
         path=a.tools_dir.resolve()/(name+('.exe' if sys.platform=='win32' else ''))

@@ -38,7 +38,7 @@ The source includes optional authenticated diagnostic commands for development. 
 python convert.py finalize --game-dir /path/to/original-game --workspace work/session --tools-dir build --native-save /path/to/intermediate.sav --output /path/to/converted-test.sav
 ```
 
-`--game-dir` still points to the unmodified original DAT/data, not the generated migration DAT. The finalizer requires a new output filename and refuses to overwrite the native input. Generated intermediates in the workspace may be replaced on a retry. If conversion fails, inspect the error; do not treat a partially written output as valid.
+`--game-dir` still points to the unmodified original DAT/data, not the generated migration DAT. The finalizer requires a new output filename and refuses to overwrite the native input. Each finalization attempt uses a new intermediate directory in the workspace. Native-save writing helpers validate and publish archives atomically without replacing existing output files. If conversion fails, inspect the error and retry with a new output filename when necessary.
 
 Copy the new save into an unused native slot of the matching engine, with the importer disabled. Load it, check the player and journal, make a NEW save, and reload it again. CRC and structural checks do not prove gameplay correctness. Keep the original save and the intermediate engine save independently.
 

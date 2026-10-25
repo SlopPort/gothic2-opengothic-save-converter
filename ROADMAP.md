@@ -3,8 +3,7 @@
 ## Next
 
 - Run the extracted toolkit from a clean checkout through a fresh migration session; the working private prototype and the refactored public CLI are separate validation stages.
-- Replace assert-based guards with explicit errors; extend the CLI atomic-publication guarantee to standalone helper scripts and validate more cross-file references.
-- Add broader NPC/script-reference validation and more script editions; synthetic DAT boundary, full-inventory, equipment-pointer, and nested-world fixtures are now present.
+- Validate more cross-file NPC/script references and additional script editions. Python guards use explicit errors; all three native-save writers publish atomically without overwriting existing files. Synthetic DAT, inventory, equipment, nested-world, global, and journal fixtures are present.
 - Automate world visitation and the fresh-game dialogue/cutscene lifecycle without leaving a diagnostic listener enabled.
 - Track object identity and parent transforms consistently; investigate skipped duplicate-name movers/triggers.
 

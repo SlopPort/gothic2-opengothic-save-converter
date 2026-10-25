@@ -1,6 +1,7 @@
 """Structural checks for the pinned format-56 migration layout, not gameplay certification."""
 import struct
 from native_format import Reader,archive,inventory_layout,item
+from script_state import guild_table_offset,restore_globals
 
 MAGIC=b'OpenGothic/Save\0'
 WORLDS={'newworld.zen','oldworld.zen'}
@@ -64,8 +65,8 @@ def validate_save(data):
     if world_name(session.s())!=current:raise ValueError('Header/session world mismatch')
     session.end()
     if calendar!=session_calendar:raise ValueError('Header/session calendar mismatch')
-    for name in ('game/quests','game/daedalus'):
-        required(entries,name)
+    guild_table_offset(required(entries,'game/quests'))
+    restore_globals(required(entries,'game/daedalus'),[])
     expected={'worlds/'+name+'.zip' for name in visited}
     actual={key for key in entries if key.startswith('worlds/') and key.endswith('.zip')}
     if expected!=actual:raise ValueError('Visited-world list/payload mismatch')

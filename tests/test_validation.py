@@ -36,7 +36,7 @@ def save(visited=True):
     entries=world(current)
     entries['header']=MAGIC+struct.pack('<H',56)+string('synthetic')+string(current)+bytes(36)+struct.pack('<qQBH',900,123,2,int(visited))
     entries['game/session']=struct.pack('<QqQ',123,900,0)+string(current)
-    entries['game/quests']=bytes(4);entries['game/daedalus']=bytes(4)
+    entries['game/quests']=struct.pack('<III',0,0,66*66)+bytes(66*66*4);entries['game/daedalus']=bytes(4)
     if visited:
         entries['header']+=string(old)
         entries['worlds/'+old+'.zip']=pack_visited_world(world(old))

@@ -1,7 +1,8 @@
 """Restore supported world state into a separate OpenGothic save. Input files remain unchanged."""
 from pathlib import Path
-import io,zipfile,struct,json,collections,math
-from native_format import Reader,item,inventory,archive,pack_visited_world
+import struct,json,math
+from native_format import Reader,item,inventory,archive,pack_visited_world,write_archive
+from script_state import restore_guild_table
 from dat_symbols import parse_dat
 import argparse
 P=argparse.ArgumentParser(description=__doc__)
@@ -32,12 +33,12 @@ for key,files in worlds.items():
    r=Reader(b)
    for _ in range(r.u()):
     rec=item(r);templates.setdefault(rec['symbol'],rec)
-   assert r.p==len(b)
+   r.end()
 state=json.loads((ROOT/'world-state.json').read_text())
 needed={i['instance'].upper() for vobs in state.values() for v in vobs for i in v.get('items',[])}
 needed|={v['item'].upper() for vobs in state.values() for v in vobs if 'item' in v}
 for p in (ROOT/'item-templates').glob('*.item'):
- r=Reader(p.read_bytes());rec=item(r);assert r.p==len(r.b);templates[rec['symbol']]=rec
+ r=Reader(p.read_bytes());rec=item(r);r.end();templates[rec['symbol']]=rec
 missing=sorted(n for n in needed if n not in byname or byname[n]['index'] not in templates)
 (ROOT/'world-item-coverage.json').write_text(json.dumps(dict(templates=len(templates),needed=len(needed),missing=missing),indent=2))
 if missing:raise ValueError('Missing item templates: '+', '.join(missing))
@@ -64,9 +65,10 @@ for key,files in worlds.items():
  used=set();matches=[]
  for v in containers+doors:
   possible=[c for c in candidates if c['path'] not in used and c['type']==v['type']]
-  assert possible,(key,v)
+  if not possible:raise ValueError('No native container/door candidate in '+key)
   c=min(possible,key=lambda c:sum((a-b)**2 for a,b in zip(c['pos'],v['pos'])))
-  dist=math.dist(c['pos'],v['pos']);assert dist<1,(key,v,c,dist)
+  dist=math.dist(c['pos'],v['pos'])
+  if dist>=1:raise ValueError('Native container/door candidate is too distant in '+key)
   used.add(c['path']);b=c['b'];r=Reader(b,c['lock']+1);oldkey=r.s();oldpick=r.s()
   keystr=v.get('key',oldkey.decode('latin1')).encode('latin1');pick=v.get('pick',oldpick.decode('latin1')).encode('latin1')
   files[c['path']]=b[:c['lock']]+bytes([v['locked']])+pack_s(keystr)+pack_s(pick)+b[c['end']:]
@@ -91,7 +93,8 @@ for key,files in worlds.items():
  for v in [v for v in state[key] if v.get('mover')]:
   bs=[x for x in base if x.get('mover') and x['name']==v['name']]
   if len(bs)!=1:continue
-  n=f"worlds/{key.lower()}.zen/mobsi/{bs[0]['id']}/data";b=bytearray(files[n]);assert len(b)>=245
+  n=f"worlds/{key.lower()}.zen/mobsi/{bs[0]['id']}/data";b=bytearray(files[n])
+  if len(b)<245:raise ValueError('Truncated native mover data')
   global_m=matrix(v);parent=source_ids.get(v.get('parent'))
   if parent:
    pr=parent['rot'];cr=v['rot'];delta=[a-b for a,b in zip(v['pos'],parent['pos'])]
@@ -111,28 +114,19 @@ for key,files in worlds.items():
  loose=[v for v in state[key] if 'item' in v and v['amount']>0]
  records=[native_item(v['item'],v['amount'],v['pos'],v['rot']) for v in loose]
  path='worlds/'+key.lower()+'.zen/items';files[path]=struct.pack('<I',len(records))+b''.join(records)
- r=Reader(files[path]);assert r.u()==len(loose)
+ r=Reader(files[path])
+ if r.u()!=len(loose):raise ValueError('Loose-item count mismatch')
  for _ in loose:item(r)
- assert r.p==len(r.b)
+ r.end()
  report[key]=dict(loose_items=len(loose),containers=len(containers),doors=len(doors),container_stacks=sum(len(v['items']) for v in containers),matches=matches,triggers_restored=trigger_matches,triggers_unmatched=trigger_skipped,movers_restored=mover_matches)
  if key=='NEWWORLD':entries.update(files)
  else:
   entries['worlds/oldworld.zen.zip']=pack_visited_world(files)
 # Restore the original guild relationship table without changing the extra engine guilds.
-r=Reader(entries['game/quests'])
-for _ in range(r.u()):
- r.s();r.skip(2)
- for __ in range(r.u()):r.s()
-n=r.u();r.skip(n*8);size=r.u();assert size==66*66
-b=bytearray(r.b);guilds=(ROOT/'guild-attitudes.bin').read_bytes();assert len(guilds)==42*42
-for row in range(42):
- for col in range(42):struct.pack_into('<i',b,r.p+(row*66+col)*4,guilds[row*42+col])
-entries['game/quests']=bytes(b)
+entries['game/quests']=restore_guild_table(entries['game/quests'],(ROOT/'guild-attitudes.bin').read_bytes())
 h=entries['header'];r=Reader(h,len(b'OpenGothic/Save\0')+2);r.s();entries['header']=h[:len(b'OpenGothic/Save\0')+2]+pack_s(b'ORIGINAL SAVE IMPORT (EXPERIMENTAL)')+h[r.p:]
 output=args.output
-with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
- for n,b in entries.items():z.writestr(n,b)
-with zipfile.ZipFile(output) as z:assert z.testzip() is None
+write_archive(entries,output)
 (ROOT/'world-conversion-report.json').write_text(json.dumps(report,indent=2))
 print('Written',output,output.stat().st_size)
 for k,v in report.items():print(k,{n:x for n,x in v.items() if n not in ('matches','triggers_restored','movers_restored')})
