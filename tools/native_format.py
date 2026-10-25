@@ -75,16 +75,25 @@ def pack_visited_world(entries):
 
 
 def publish_archive(candidate, output):
- """Validate a completed ZIP and publish it atomically without replacing a file.
-
- Hard-link creation is the commit point. Both paths are on the same filesystem;
- unsupported filesystems fail safely rather than falling back to an overwrite.
- This checks archive integrity, not engine revision or gameplay compatibility.
- """
+ """Publish a completed archive without replacing the input or an existing output."""
  from pathlib import Path
  candidate,output=Path(candidate),Path(output)
  if candidate.resolve()==output.resolve():raise ValueError('Input and output must differ')
- data=candidate.read_bytes()
+ publish_bytes(candidate.read_bytes(),output)
+
+
+def write_archive(entries,output):
+ """Pack entries and publish atomically without replacing an existing file."""
+ publish_bytes(pack_archive(entries),output)
+
+
+def publish_bytes(data,output):
+ """Validate ZIP integrity and commit using an exclusive same-filesystem hard link.
+
+ Unsupported filesystems fail safely. This is not gameplay certification.
+ """
+ from pathlib import Path
+ output=Path(output)
  entries=archive(data)
  for name,payload in entries.items():
   if name.startswith('worlds/') and name.endswith('.zip'):

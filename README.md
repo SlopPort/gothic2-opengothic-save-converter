@@ -20,7 +20,7 @@ The supported workflow currently requires a **manual migration session in the ma
 - Player and NPC attributes, talents, inventory, position, and selected equipment state.
 - Native world generation followed by offline restoration of loose world items, container contents, container/door locks, and the original guild-attitude table.
 - Available enable/count flags of uniquely matched triggers and a subset of uniquely matched movers. Some original animation state is only approximated.
-- Calendar/playtime normalization and accessory-equipment pointers without reapplying stat bonuses.
+- Calendar/playtime normalization and player accessory-equipment pointers without reapplying stat bonuses, including stale-slot removal and two explicit source rings sharing a native stack.
 - An optional engine patch that preserves total playtime without retiming the simulation's NPC timers.
 
 ### Important limits
