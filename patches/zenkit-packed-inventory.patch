@@ -1,0 +1,13 @@
+diff --git a/src/vobs/Misc.cc b/src/vobs/Misc.cc
+index c711191..96879ea 100644
+--- a/src/vobs/Misc.cc
++++ b/src/vobs/Misc.cc
+@@ -366,7 +366,7 @@ namespace zenkit {
+ 			do {
+ 				auto next = std::find(it, pack.end(), ';');
+ 				this->packed[idx++].assign(it, next);
+-				it = next;
++				it = next == pack.end() ? next : next + 1;
+ 			} while (it != pack.end() && idx < 9);
+ 		}
+ 

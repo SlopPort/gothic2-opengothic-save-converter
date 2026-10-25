@@ -1,0 +1,31 @@
+cmake_minimum_required(VERSION 3.22)
+project(opengothic_save_converter LANGUAGES CXX)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "Compatibility for older dependency CMake files")
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+include(FetchContent)
+set(ZK_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ZK_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(ZK_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(ZK_ENABLE_ASAN OFF CACHE BOOL "" FORCE)
+find_package(Git REQUIRED)
+FetchContent_Declare(zenkit
+  GIT_REPOSITORY https://github.com/GothicKit/ZenKit.git
+  GIT_TAG e1c1044e4e0708b05db152ede44393f78d935ad5
+  GIT_SHALLOW FALSE)
+FetchContent_GetProperties(zenkit)
+if(NOT zenkit_POPULATED)
+  FetchContent_Populate(zenkit)
+endif()
+set(PACKED_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/patches/zenkit-packed-inventory.patch")
+execute_process(COMMAND "${GIT_EXECUTABLE}" apply --check --reverse "${PACKED_PATCH}"
+ WORKING_DIRECTORY "${zenkit_SOURCE_DIR}" RESULT_VARIABLE ALREADY_PATCHED OUTPUT_QUIET ERROR_QUIET)
+if(NOT ALREADY_PATCHED EQUAL 0)
+ execute_process(COMMAND "${GIT_EXECUTABLE}" apply "${PACKED_PATCH}"
+  WORKING_DIRECTORY "${zenkit_SOURCE_DIR}" COMMAND_ERROR_IS_FATAL ANY)
+endif()
+add_subdirectory("${zenkit_SOURCE_DIR}" "${zenkit_BINARY_DIR}" EXCLUDE_FROM_ALL)
+foreach(tool export_save export_world export_base_world export_guild export_items verify_helpers)
+ add_executable(${tool} src/${tool}.cpp)
+ target_link_libraries(${tool} PRIVATE zenkit)
+endforeach()

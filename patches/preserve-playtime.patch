@@ -1,0 +1,54 @@
+diff --git a/common/game/gamesession.cpp b/common/game/gamesession.cpp
+index 0c48b1f..dcbedb8 100644
+--- a/common/game/gamesession.cpp
++++ b/common/game/gamesession.cpp
+@@ -150,6 +150,7 @@ GameSession::GameSession(Serialize &fin) {
+   fin.setStage("game/session");
+   fin.requireEntry("game/session");
+   fin.read(ticks,wrldTime,wrldTimePart,wname);
++  playTimeOffset = hdr.playTime>ticks ? hdr.playTime-ticks : 0;
+ 
+   cam.reset(new Camera());
+   vm.reset(new GameScript(*this));
+@@ -213,7 +214,7 @@ void GameSession::save(Serialize &fout, std::string_view name, const Pixmap& scr
+   hdr.pcTime = *tp;
+   }
+   hdr.wrldTime  = wrldTime;
+-  hdr.playTime  = ticks;
++  hdr.playTime  = playTime();
+   hdr.isGothic2 = Gothic::inst().version().game;
+ 
+   fout.setEntry("header");
+diff --git a/common/game/gamesession.h b/common/game/gamesession.h
+index f172ab2..9388d84 100644
+--- a/common/game/gamesession.h
++++ b/common/game/gamesession.h
+@@ -57,6 +57,7 @@ class GameSession final {
+     void         setTime(gtime t);
+     void         tick(uint64_t dt);
+     uint64_t     tickCount() const { return ticks; }
++    uint64_t     playTime() const { return ticks+playTimeOffset; }
+ 
+     void         setTimeMultiplyer(float t);
+ 
+@@ -98,6 +99,7 @@ class GameSession final {
+     std::unique_ptr<World>         wrld;
+ 
+     uint64_t                       ticks = 0, wrldTimePart = 0;
++    uint64_t                       playTimeOffset = 0;
+     uint64_t                       timeMul = 1000, timeMulFract = 0;
+     gtime                          wrldTime;
+ 
+diff --git a/common/ui/savescreen.cpp b/common/ui/savescreen.cpp
+index 8d9eb8a..e45f881 100644
+--- a/common/ui/savescreen.cpp
++++ b/common/ui/savescreen.cpp
+@@ -116,7 +116,7 @@ SaveGameHeader SaveScreen::liveHeader(int32_t& chapter, int32_t& level) const {
+     hdr.pcTime = *t;
+   if(auto* w = Gothic::inst().world()) {
+     hdr.world    = w->name();
+-    hdr.playTime = w->tickCount();
++    hdr.playTime = w->gameSession().playTime();
+     chapter      = w->script().chapter();
+     if(auto* pl = w->player())
+       level = pl->level();
