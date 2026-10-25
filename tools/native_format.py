@@ -5,8 +5,14 @@ class Reader:
  def skip(self,n):
   if n<0 or self.p+n>len(self.b):raise ValueError('Truncated native save data')
   self.p+=n
- def u(self):
-  start=self.p;self.skip(4);return struct.unpack_from('<I',self.b,start)[0]
+ def read(self,n):
+  start=self.p;self.skip(n);return self.b[start:self.p]
+ def number(self,fmt):
+  size=struct.calcsize(fmt)
+  return struct.unpack(fmt,self.read(size))[0]
+ def u(self):return self.number('<I')
+ def end(self):
+  if self.p!=len(self.b):raise ValueError('Trailing native save data')
  def s(self):
   n=self.u()
   if n>1000000:raise ValueError('Invalid native string length')
@@ -20,15 +26,36 @@ def item(r):
  r.skip((6+5)*4)
  amount=r.p;r.skip(4+12+2+64)
  return dict(symbol=symbol,raw=r.b[start:r.p],amount=amount-start,pos=amount-start+4,matrix=amount-start+18)
-def inventory(b):
+def inventory_layout(b):
+ """Decode format-56 indices without invoking equip scripts or changing data."""
  r=Reader(b);n=r.u()
  if n>=10000:raise ValueError('Invalid inventory item count')
  records=[item(r) for _ in range(n)]
- for _ in range(r.u()):r.s();r.skip(4)
- for _ in range(2):r.s();r.skip(4)
- r.skip(16*4+1+8)
- if r.p!=len(b):raise ValueError('Trailing inventory data')
- return records
+ def pointer():
+  value=r.u()
+  if value!=0xffffffff and value>=n:
+   raise ValueError('Inventory pointer outside item table: '+str(value))
+  return value
+ models=[]
+ count=r.u()
+ if count>len(b)//8:raise ValueError('Invalid inventory model-slot count')
+ for _ in range(count):models.append((r.s(),pointer()))
+ attachments=[(r.s(),pointer()) for _ in range(2)]
+ offset=r.p
+ equipment=[pointer() for _ in range(16)]
+ active=r.number('<B')
+ # The engine writer emits 3..10 for the eight hotbar slots.
+ if active not in (255,1,2,*range(3,11)):
+  raise ValueError('Invalid active inventory slot')
+ current,state=r.number('<i'),r.number('<i')
+ r.end()
+ return dict(records=records,models=models,attachments=attachments,
+             equipment=equipment,equipment_offset=offset,active=active,
+             current=current,state=state)
+
+def inventory(b):
+ return inventory_layout(b)['records']
+
 def archive(b):
  with zipfile.ZipFile(io.BytesIO(b)) as z:
   names=z.namelist()

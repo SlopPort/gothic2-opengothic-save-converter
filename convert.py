@@ -2,6 +2,8 @@
 from pathlib import Path
 import argparse,json,subprocess,sys,tempfile
 from tools.native_format import publish_archive
+sys.path.insert(0,str(Path(__file__).resolve().parent/'tools'))
+from native_validation import validate_save
 ROOT=Path(__file__).resolve().parent
 
 def run(*args):
@@ -9,6 +11,8 @@ def run(*args):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);sub=p.add_subparsers(dest='command',required=True)
+    check=sub.add_parser('validate',help='Check the pinned native layout without game assets')
+    check.add_argument('--native-save',type=Path,required=True)
     for command in ['prepare','finalize']:
         q=sub.add_parser(command)
         q.add_argument('--game-dir',type=Path,required=True)
@@ -19,6 +23,9 @@ def main():
         else:
             q.add_argument('--native-save',type=Path,required=True);q.add_argument('--output',type=Path,required=True)
     a=p.parse_args()
+    if a.command=='validate':
+        print(json.dumps(validate_save(a.native_save.read_bytes()),indent=2))
+        return
     if sys.flags.optimize:raise RuntimeError('Run without -O: migration helpers still require assertion checks')
     w=a.workspace.resolve();w.mkdir(parents=True,exist_ok=True)
     def tool(name):
@@ -42,6 +49,7 @@ def main():
     else:
         if a.output.exists():raise FileExistsError('Output exists; choose a new filename')
         if a.native_save.resolve()==a.output.resolve():raise ValueError('Input and output must differ')
+        validate_save(a.native_save.read_bytes())
         # Unique intermediates prevent concurrent runs from sharing partial archives.
         staging=Path(tempfile.mkdtemp(prefix='finalize-',dir=w))
         py('finalize_save.py','--workspace',w,'--input',a.native_save.resolve(),'--output',staging/'normalized.sav')
@@ -57,6 +65,7 @@ def main():
             run(tool('export_items'),a.game_dir.resolve()/'_work/Data/Scripts/_compiled/GOTHIC.DAT',w/'item-templates',*missing)
             run(*command)
         py('restore_equipment.py',*common,'--input',staging/'world-restored.sav','--output',staging/'candidate.sav')
+        validate_save((staging/'candidate.sav').read_bytes())
         publish_archive(staging/'candidate.sav',a.output.resolve())
         print('Experimental converted save:',a.output.resolve())
         print('Test loading, saving, and reloading in the matching engine before continuing a playthrough.')

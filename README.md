@@ -55,7 +55,19 @@ python convert.py prepare --game-dir /path/to/Gothic-II --save-dir /path/to/save
 python convert.py finalize --game-dir /path/to/Gothic-II --workspace work/session --tools-dir build --native-save /path/to/intermediate.sav --output /path/to/converted-test.sav
 ```
 
-Finalization normalizes the session, restores supported world state, generates any missing item templates from the local DAT, restores accessory pointers, and verifies output ZIP CRCs. It does not certify quest logic or AI correctness. Run Python normally, without `-O`: this prototype still uses assertions for several structural guards.
+Finalization normalizes the session, restores supported world state, generates any missing item templates from the local DAT, restores accessory pointers, and checks the native structure before publishing the output without overwriting an existing file. It does not certify quest logic or AI correctness. Run Python normally, without `-O`: this prototype still uses assertions for several structural guards.
+
+## Check a native save
+
+No game files or compiled exporters are required for structural validation:
+
+```sh
+python convert.py validate --native-save /path/to/converted-test.sav
+```
+
+The command checks the pinned format-56 header, session/world/calendar agreement, declared visited-world payloads, explicit contiguous NPC directories, required NPC data/visual entries, item records, and inventory pointers. Empty NPC inventories may be omitted, as in the engine. It checks the active and visited worlds, including their inventories. The JSON report excludes the save title and individual character/item data.
+
+These checks do not decode every NPC field, validate script symbol identities against the game DAT, certify a different engine revision, or prove quest/AI behavior. The finalizer applies these checks to both its native input and completed candidate.
 
 ## Development
 
