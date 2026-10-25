@@ -8,9 +8,9 @@ The Android graphics work lives separately in [opengothic-android-adreno610](htt
 
 ## Current status
 
-One original save was migrated with the development prototype, loaded on the tested Android build, saved by the engine, and reloaded. A visible character-stat check and structural checks of the native output were performed. This validates one prototype migration; it does not establish complete save compatibility or prove that every quest can be finished.
+The public toolkit completed a fresh-workspace migration of one original save through a NEW game on the tested Android build, both supported worlds, offline finalization, and a native load/save/reload with the importer disabled. Character fields, accessories, journal records, known-dialog pairs, and guild-table data were checked through that round trip. See [validation details](docs/VALIDATION.md) for the precise scope.
 
-The public CLI was extracted from that prototype. A complete run from a clean checkout through a fresh engine migration session is still pending. The device result must not be read as an end-to-end test of this extracted CLI.
+This is one tested fixture, not proof that every quest can be finished. Independent clean-checkout reproduction, additional source saves/script editions, and full-storyline testing remain pending. The matching engine was previously built; this test did not rebuild it from a clean checkout.
 
 The supported workflow currently requires a **manual migration session in the matching engine**. It is not a one-click conversion of an arbitrary save folder. The original save is read by the tools; outputs go into a separate workspace and new save files.
 
@@ -65,7 +65,7 @@ No game files or compiled exporters are required for structural validation:
 python convert.py validate --native-save /path/to/converted-test.sav
 ```
 
-The command checks the pinned format-56 header, session/world/calendar agreement, declared visited-world payloads, explicit contiguous NPC directories, required NPC data/visual entries, item records, inventory pointers, script-variable records, journal boundaries, and guild-table dimensions. Empty NPC inventories may be omitted, as in the engine. It checks the active and visited worlds, including their inventories. The JSON report excludes the save title and individual character/item data.
+The command checks the pinned format-56 header, session/world/calendar agreement, declared visited-world payloads, explicit contiguous NPC directories, required NPC data/visual entries, bounded NPC script-state prefixes, item records, inventory pointers, script-variable records, journal boundaries, and guild-table dimensions. Empty NPC inventories may be omitted, as in the engine. It checks the active and visited worlds, including their inventories. The JSON report excludes the save title and individual character/item data.
 
 These checks do not decode every NPC field, validate script symbol identities against the game DAT, certify a different engine revision, or prove quest/AI behavior. The finalizer applies these checks to both its native input and completed candidate.
 

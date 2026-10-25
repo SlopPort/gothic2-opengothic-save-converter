@@ -25,10 +25,16 @@ def inventory_record(items=(),models=(),attachments=None,equipment=None,active=2
     for name,index in attachments or [('',NULL),('',NULL)]:result+=string(name)+struct.pack('<I',index)
     return result+struct.pack('<16IBii',*(equipment or [NULL]*16),active,-1,0)
 
+def npc_record(symbol=7):
+    data=struct.pack('<Ii',symbol,99)+string('')*7+struct.pack('<ii',0,0)
+    data+=struct.pack('<8i',40,80,10,20,15,12,0,0)+bytes((5+8+8)*4)
+    data+=struct.pack('<3i',0,2,14)+bytes((5+5+2)*4)+string('')+bytes((3+100)*4)
+    return data+string('')+struct.pack('<5i',100,200,8,0,0)
+
 def world(name):
     prefix='worlds/'+name+'/'
     return {prefix+'version':struct.pack('<H',56),prefix+'npc/0/':b'',
-            prefix+'npc/0/data':struct.pack('<I',7),prefix+'npc/0/visual':b'',
+            prefix+'npc/0/data':npc_record(),prefix+'npc/0/visual':b'',
             prefix+'npc/0/inventory':inventory_record(),prefix+'items':struct.pack('<I',0)}
 
 def save(visited=True):

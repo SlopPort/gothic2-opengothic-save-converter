@@ -1,6 +1,6 @@
 # Migration workflow
 
-This is a prototype workflow for developers. The extracted public toolkit has not yet completed a clean-checkout-to-engine validation run. It deliberately separates extraction, an engine-assisted migration session, and offline finalization. Use a separate copy of the game installation for the session. Do not experiment on your only installation or save copy.
+This is a prototype workflow for developers. The public toolkit completed one fresh-workspace engine migration and native load/save/reload; independent clean-checkout reproduction and broader source-save testing remain pending. It deliberately separates extraction, an engine-assisted migration session, and offline finalization. Use a separate copy of the game installation for the session. Do not experiment on your only installation or save copy.
 
 ## 1. Prepare local inputs
 

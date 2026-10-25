@@ -2,6 +2,7 @@
 import struct
 from native_format import Reader,archive,inventory_layout,item
 from script_state import guild_table_offset,restore_globals
+from npc_state import npc_script_state
 
 MAGIC=b'OpenGothic/Save\0'
 WORLDS={'newworld.zen','oldworld.zen'}
@@ -29,7 +30,8 @@ def validate_world(entries,name,active=False):
         for index in children:
             node=base+index+'/'
             if required(entries,node)!=b'':raise ValueError('Nonempty NPC directory: '+node)
-            if len(required(entries,node+'data'))<4:raise ValueError('Truncated NPC data: '+node)
+            try:npc_script_state(required(entries,node+'data'))
+            except ValueError as error:raise ValueError(node+'data: '+str(error)) from error
             required(entries,node+'visual')
             # Empty inventories are omitted by Npc::save and optional on load.
         counts[group]=len(children)
