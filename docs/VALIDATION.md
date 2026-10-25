@@ -6,6 +6,10 @@ The visible character screen matched the source before and after the final nativ
 
 This is one fresh-session fixture using a previously built matching engine and locally compiled public readers. It is not independent clean-checkout reproduction or validation of other game/script editions. The earlier private development prototype was a separate validation stage. No full-storyline or broad quest/AI behavior test has been performed. Exact AI queues, NPC news, routines, spawn scheduling, all interactions, and dynamic relationships remain unsupported or incomplete.
 
+A subsequent inventory audit found excess quantities retained by the engine's inventory-clear operation. Offline reconciliation now restores exact source player amounts, removes extras, remaps model/attachment/equipment indices, and then rebuilds accessories. The corrected result loaded with the importer disabled, its native resave passed the exact source player-field, inventory-quantity, and accessory checks, and that resave loaded again. An earlier round-trip check covered player fields and accessory identities without proving exact inventory quantities. Similar discrepancies were observed in uniquely matched NPC inventories; those are not yet corrected.
+
+Finalization also checks the original DAT fingerprint recorded during preparation, then compares selected player fields (including AI-variable values), inventory quantities, and accessory pointers against the source before publishing. The fingerprint does not bind a native intermediate to a particular source save, and matching player fields do not prove full NPC/quest compatibility. Synthetic fixtures cover mismatched script files, missing/malformed fingerprint reports, source-player mismatches, protected-item duplicates, inventory pointer remapping, missing/ambiguous stacks, and repeated reconciliation.
+
 ## Automated checks
 
 Synthetic fixtures exercise explicit directory preservation, visited-world length prefixes and nested archive integrity, populated inventory layouts and pointer bounds, active slots, NPC directory continuity, missing data/visual entries, header/session agreement, pinned versions, and bounded NPC script-state prefixes. The remaining NPC movement/AI/relationship payload is not decoded by the prefix reader.
@@ -18,7 +22,7 @@ The `validate` command checks the active and visited worlds, including their inv
 
 ## Output protection
 
-The CLI uses unique intermediate archives for each finalization attempt. The CLI publication step and all three native-save writing helpers check ZIP entries/CRCs and nested visited-world lengths/integrity, flush a temporary file in the destination directory, and atomically create the output using a hard link. An existing or concurrently created destination is never replaced. Filesystems without hard-link support fail safely. These guarantees do not certify gameplay compatibility or guarantee persistence after a filesystem/power failure.
+The CLI uses unique intermediate archives for each finalization attempt. The CLI publication step and all four native-save writing helpers check ZIP entries/CRCs and nested visited-world lengths/integrity, flush a temporary file in the destination directory, and atomically create the output using a hard link. An existing or concurrently created destination is never replaced. Filesystems without hard-link support fail safely. These guarantees do not certify gameplay compatibility or guarantee persistence after a filesystem/power failure.
 
 Generated snapshots, DAT files, item templates, and detailed normalization/world reports contain local paths, game data, or playthrough state and must remain local. They are not covered by the `validate` command's limited-report privacy claim.
 

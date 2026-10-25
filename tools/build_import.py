@@ -1,8 +1,9 @@
 """Generate a local import mod and append-only Daedalus helpers from your own files."""
-import json, struct, pathlib, hashlib, collections
+import json, struct, pathlib, hashlib
 u32 = lambda n: struct.pack('<I', n & 0xffffffff)
 import argparse
 from dat_symbols import parse_dat
+from inventory_restore import source_inventory
 P=argparse.ArgumentParser(description=__doc__)
 P.add_argument('--game-dir',type=pathlib.Path,required=True)
 P.add_argument('--workspace',type=pathlib.Path,required=True)
@@ -44,13 +45,7 @@ for world, npcs in snapshot['worlds'].items():
             values=n[key] if isinstance(n[key],list) else [n[key]]
             for i,v in enumerate(values): c.extend(assign('C_NPC.'+field,v,i + (1 if field=='HITCHANCE' else 0)))
         n['helper']=function('OGI_IMPORT_'+world+'_'+str(index),c)
-        items=collections.Counter()
-        for packed in n['packed']:
-            for part in packed.split(','):
-                if ':' in part:
-                    name,amount=part.rsplit(':',1);items[name]+=int(amount)
-        for item in n['items']: items[item['instance']] += max(1,item['amount'])
-        n['inventory']=dict(items)
+        n['inventory']=source_inventory(n)
         # Preserve raw game encoding in this JSON, because the game UI is not UTF-8.
 for field in ['LP','EXP_NEXT','GUILD']:
     function('OGI_GET_'+field,bytes([80])+u32(byname['SELF']['index'])+bytes([65])+u32(byname['C_NPC.'+field]['index']),True)
@@ -67,7 +62,7 @@ patched=data[:1]+u32(len(records))+b''.join(u32(i) for i in sort_order)+b''.join
 # Keep CP1250 only in the human-readable report; use the raw snapshot for game text.
 for new,old in zip(snapshot['quests'],raw['quests']): new.update(old)
 (mod/'snapshot.json').write_text(json.dumps(snapshot,ensure_ascii=True,separators=(',',':')),encoding='utf8')
-(mod/'manifest.json').write_text(json.dumps(dict(id='og-save-import',name='Import zapisu Steam — eksperymentalny',version='0.1.0',main='index.js',type='script',apiVersion=1,game=['G2']),ensure_ascii=True),encoding='utf8')
+(mod/'manifest.json').write_text(json.dumps(dict(id='og-save-import',name='Import zapisu Steam â€” eksperymentalny',version='0.1.0',main='index.js',type='script',apiVersion=1,game=['G2']),ensure_ascii=True),encoding='utf8')
 hero=next(n for n in snapshot['worlds'][snapshot['world']] if n['player'])
 report=dict(sourceSha256=hashlib.sha256(data).hexdigest(),originalSymbols=count,patchedSymbols=len(records),originalBytecode=len(oldcode),addedBytecode=len(extra_code),assignments=assignments,globals=len(snapshot['symbols']),skippedSymbols=skipped,quests=len(snapshot['quests']),infos=len(snapshot['infos']),hero={k:hero[k] for k in ['level','xp','lp','guild','attributes','hitChance']},inventoryKinds=len(hero['inventory']),gold=hero['inventory'].get('ITMI_GOLD'),limitations=['World object, container and trigger state is not imported','NPC AI queues, news, routines and spawn scheduling are not reproduced exactly','World data, calendar, playtime, guild relations and accessory pointers are restored by the subsequent offline finalization stage'])
 (output/'build-report.json').write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding='utf8')

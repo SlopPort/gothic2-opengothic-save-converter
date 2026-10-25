@@ -4,6 +4,10 @@ import argparse,json,subprocess,sys,tempfile
 from tools.native_format import publish_archive
 sys.path.insert(0,str(Path(__file__).resolve().parent/'tools'))
 from native_validation import validate_save
+from workspace_checks import verify_original_scripts
+from player_checks import verify_player
+from native_format import archive
+from dat_symbols import parse_dat
 ROOT=Path(__file__).resolve().parent
 
 def run(*args):
@@ -48,6 +52,7 @@ def main():
     else:
         if a.output.exists():raise FileExistsError('Output exists; choose a new filename')
         if a.native_save.resolve()==a.output.resolve():raise ValueError('Input and output must differ')
+        verify_original_scripts(a.game_dir,w)
         validate_save(a.native_save.read_bytes())
         # Unique intermediates prevent concurrent runs from sharing partial archives.
         staging=Path(tempfile.mkdtemp(prefix='finalize-',dir=w))
@@ -63,8 +68,12 @@ def main():
             if not missing:raise RuntimeError('World conversion failed; see the error above')
             run(tool('export_items'),a.game_dir.resolve()/'_work/Data/Scripts/_compiled/GOTHIC.DAT',w/'item-templates',*missing)
             run(*command)
-        py('restore_equipment.py',*common,'--input',staging/'world-restored.sav','--output',staging/'candidate.sav')
-        validate_save((staging/'candidate.sav').read_bytes())
+        py('restore_inventory.py',*common,'--input',staging/'world-restored.sav','--output',staging/'inventory-restored.sav')
+        py('restore_equipment.py',*common,'--input',staging/'inventory-restored.sav','--output',staging/'candidate.sav')
+        candidate=(staging/'candidate.sav').read_bytes()
+        validate_save(candidate)
+        verify_player(archive(candidate),json.loads((w/'source-save.json').read_text()),
+                      parse_dat(a.game_dir/'_work/Data/Scripts/_compiled/GOTHIC.DAT')['byname'])
         publish_archive(staging/'candidate.sav',a.output.resolve())
         print('Experimental converted save:',a.output.resolve())
         print('Test loading, saving, and reloading in the matching engine before continuing a playthrough.')

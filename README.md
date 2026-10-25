@@ -17,7 +17,7 @@ The supported workflow currently requires a **manual migration session in the ma
 ### Implemented scope of the prototype
 
 - Script integer globals/arrays, journal entries, and known-dialog information.
-- Player and NPC attributes, talents, inventory, position, and selected equipment state.
+- Player and NPC attributes, talents, inventory migration, position, and selected equipment state. Offline reconciliation restores exact player inventory quantities before rebuilding player accessory pointers.
 - Native world generation followed by offline restoration of loose world items, container contents, container/door locks, and the original guild-attitude table.
 - Available enable/count flags of uniquely matched triggers and a subset of uniquely matched movers. Some original animation state is only approximated.
 - Calendar/playtime normalization and player accessory-equipment pointers without reapplying stat bonuses, including stale-slot removal and two explicit source rings sharing a native stack.
@@ -28,6 +28,7 @@ The supported workflow currently requires a **manual migration session in the ma
 - Only a current `NEWWORLD` save with `NEWWORLD` and optional `OLDWORLD` data is supported. Addonworld, other current worlds, Gothic 1, mods, and arbitrary engine versions are unsupported.
 - The binary layout is restricted to the tested **OpenGothic format 56** and the pinned [Android fork revision](https://github.com/borsuczyna/OpenGothic-Android/tree/118afdc10d79a7f3357e28c6ee52f6fc2fba8586). A matching format number alone does not establish compatibility with another engine revision.
 - Exact AI queues, NPC news, routines, spawn scheduling, all interactions, and all dynamic world relationships are not reproduced. Duplicate or ambiguous object matches are skipped or rejected rather than treated as exact matches.
+- The engine inventory-clear operation retains equipped/mission items. Player quantities are corrected offline; similar NPC inventory overcounts were observed and are not yet reconciled.
 - Trigger/mover restoration is partial; the full original engine behavior is not emulated. No full-storyline regression test has been performed.
 - The tested source text used CP1250. Other text encodings and game editions need validation. The original and migration sessions must use matching game scripts/data.
 
@@ -55,7 +56,7 @@ python convert.py prepare --game-dir /path/to/Gothic-II --save-dir /path/to/save
 python convert.py finalize --game-dir /path/to/Gothic-II --workspace work/session --tools-dir build --native-save /path/to/intermediate.sav --output /path/to/converted-test.sav
 ```
 
-Finalization normalizes the session, restores supported world state, generates any missing item templates from the local DAT, restores accessory pointers, and checks the native structure before publishing the output without overwriting an existing file. It does not certify quest logic or AI correctness. Structural guards use explicit exceptions and remain enabled under Python optimization mode (`-O`).
+Finalization normalizes the session, restores supported world state, generates any missing item templates from the local DAT, reconciles exact player inventory amounts, restores accessory pointers, and checks the native structure before publishing the output without overwriting an existing file. It does not certify quest logic or AI correctness. It verifies the original script fingerprint and compares final player fields, quantities, and accessory pointers against the source before publication. Structural guards use explicit exceptions and remain enabled under Python optimization mode (`-O`).
 
 ## Check a native save
 
