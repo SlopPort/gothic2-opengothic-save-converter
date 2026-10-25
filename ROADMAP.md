@@ -4,7 +4,7 @@
 
 - Run the extracted toolkit from a clean checkout through a fresh migration session; the working private prototype and the refactored public CLI are separate validation stages.
 - Replace assert-based guards with explicit errors; extend the CLI atomic-publication guarantee to standalone helper scripts and validate more cross-file references.
-- Add DAT edge-case fixtures and broader NPC/script-reference validation; synthetic full-inventory, equipment-pointer, and nested-world checks are now present.
+- Add broader NPC/script-reference validation and more script editions; synthetic DAT boundary, full-inventory, equipment-pointer, and nested-world fixtures are now present.
 - Automate world visitation and the fresh-game dialogue/cutscene lifecycle without leaving a diagnostic listener enabled.
 - Track object identity and parent transforms consistently; investigate skipped duplicate-name movers/triggers.
 
