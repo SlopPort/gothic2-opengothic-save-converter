@@ -45,8 +45,8 @@ def main():
         if (w/'source-save.json').exists():raise FileExistsError('Use a fresh workspace for each source save')
         run(tool('export_save'),a.save_dir.resolve(),w/'source-save.json')
         source=json.loads((w/'source-save.json').read_text())
-        if source['world']!='NEWWORLD' or set(source['worlds'])-{'NEWWORLD','OLDWORLD'}:
-            raise ValueError('Supported scope: current NEWWORLD with NEWWORLD/OLDWORLD saves only')
+        from source_validation import validate_source
+        validate_source(source)
         run(tool('export_world'),a.save_dir.resolve(),w/'world-state.json')
         run(tool('export_base_world'),a.game_dir.resolve()/'Data',w/'base-world-state.json')
         run(tool('export_guild'),a.save_dir.resolve(),w/'guild-attitudes.bin')

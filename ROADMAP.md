@@ -9,7 +9,7 @@
 
 - Reproduce a clean Android build and complete fresh engine migration from a source snapshot, then test additional source saves and script editions. Fresh Windows reader builds and offline output reproduction with a reused engine intermediate have passed; the phone checks still cover one source fixture.
 - Validate more cross-file NPC/script references and additional script editions. Python guards use explicit errors; the native-save writing helpers publish atomically without overwriting existing files. Synthetic DAT, inventory, equipment, nested-world, global, and journal fixtures are present.
-- Automate world visitation and the fresh-game dialogue/cutscene lifecycle without leaving a diagnostic listener enabled.
+- Extend automatic-tour validation beyond the single successful guarded fresh tour, strict default finalization, and native load/save/reload. The earlier unguarded tour failed population validation; the tagged-population guard fixed the tested case. Exercise additional transition/lifecycle failures. Keep manual visitation available. Fresh-game dialogue/cutscene handling and save/export automation remain future work; avoid leaving a diagnostic listener enabled.
 - Track object identity and parent transforms consistently; investigate skipped duplicate-name movers/triggers.
 
 ## Compatibility research

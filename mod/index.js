@@ -4,7 +4,9 @@ const config = require('./config.json');
 const token = config.remoteToken;
 const heroSource = source.worlds[source.world].find(n => n.player);
 let queue = [], active = false, finished = false, phase = 'waiting', error = '';
-let progress = 0, total = 0, frozen = [], lastWorld = '', importedWorlds = {};
+let progress = 0, total = 0, frozen = [], importedWorlds = {};
+let automatic = false, transition = null;
+function worldName() {return world.name().split(/[\\/]/).pop().replace(/\.ZEN$/i,'').toUpperCase();}
 let report = { globals: 0, infos: 0, quests: 0, npcs: 0, spawned: 0, removed: 0, failed: [] };
 function call(name, args, npc) {
     const result = debug.call(name, args || [], npc ? {self:npc} : {});
@@ -18,11 +20,12 @@ function status() {
         guild:player.guild, gold:player.itemCount('ITMI_GOLD'), position:player.position, armor:player.armor,
         lp:debug.signature('OGI_GET_LP') ? call('OGI_GET_LP',[],player) : null};
     return {phase, active, finished, error, progress, total, world:world.name(), hero, report,
+        automatic, waitingForWorld:transition ? transition.target : null,
         capabilities:{helper:!!debug.signature('OGI_IMPORT_GLOBALS'),info:typeof debug.setInfoKnown,
             inventory:debug.signature('NPC_CLEARINVENTORY')}, importedWorlds};
 }
 function thaw() { for (const n of frozen) if(n.valid) n.setPuppet(false); frozen=[]; }
-function fail(e) {error=String(e);phase='failed';active=false;queue=[];thaw();console.error(error);}
+function fail(e) {error=String(e);phase='failed';active=false;queue=[];transition=null;automatic=false;thaw();console.error(error);}
 function enqueue(fn) {queue.push(fn);total++;}
 function applyNpc(npc, saved) {
     if(typeof npc.setMigrationKey!=='function')throw new Error('Migration identity engine patch is required');
@@ -58,7 +61,8 @@ function applyNpc(npc, saved) {
     if (saved.attributes[0]<=0) npc.kill();
     npc.setPuppet(false);
 }
-function importWorld(name) {
+function importWorld(name, onComplete) {
+    if(worldName()!==name)throw new Error('Cannot import NPCs into the wrong world');
     phase='NPCs '+name;
     const saved=source.worlds[name].filter(n=>!n.player);
     const present=npcs.nearby(10000000), groups={}, used=new Set();
@@ -76,7 +80,23 @@ function importWorld(name) {
         thaw();importedWorlds[name]=true;phase='world complete';
         const mask=debug.symbol('OGI_IMPORT_MASK');
         if(mask)debug.setSymbol('OGI_IMPORT_MASK',mask.value | (name==='NEWWORLD'?1:2));
+        if(onComplete)onComplete();
     });
+}
+function travel(target, onReady) {
+    if(transition)throw new Error('A world transition is already pending');
+    if(worldName()===target){enqueue(onReady);return;}
+    thaw();transition={target,onReady,ready:false,started:Date.now()};phase='loading '+target;
+    world.changeLevel(target.toLowerCase()+'.zen','START');
+}
+function finishTour() {
+    travel(source.world,()=>{
+        applyNpc(player,heroSource);world.setTime(source.time[1],source.time[2]);phase='player restored';
+    });
+}
+function continueTour() {
+    const next=Object.keys(source.worlds).find(name=>!importedWorlds[name]);
+    if(next)travel(next,()=>importWorld(next,continueTour));else finishTour();
 }
 function distance(n,r) {return (n.x-r.position[0])**2+(n.y-r.position[1])**2+(n.z-r.position[2])**2;}
 function resetIfFreshGame(allowFailed=false) {
@@ -84,10 +104,10 @@ function resetIfFreshGame(allowFailed=false) {
     const mask=debug.symbol('OGI_IMPORT_MASK');
     if(!mask||mask.value!==0||(!finished&&!(allowFailed&&error)))return;
     thaw();queue=[];active=false;finished=false;phase='waiting';error='';
-    progress=0;total=0;importedWorlds={};
+    progress=0;total=0;importedWorlds={};automatic=false;transition=null;
     report={globals:0,infos:0,quests:0,npcs:0,spawned:0,removed:0,failed:[]};
 }
-function begin() {
+function begin(autoVisit=false) {
     resetIfFreshGame();
     if(active||finished)throw new Error('Already started');
     if(error)throw new Error('Previous migration failed; start a NEW game before retrying');
@@ -97,7 +117,10 @@ function begin() {
     if(!source.migrationId)throw new Error('Prepare a fresh migration workspace');
     if(Object.values(source.worlds).some(records=>records.some(n=>n.routineFunction))&&typeof player.setMigrationRoutine!=='function')
         throw new Error('Apply patches/migration-routines.patch to the migration engine');
-    active=true;phase='globals';
+    if(worldName()!==source.world)throw new Error('Begin in the source current world');
+    if(autoVisit&&Object.keys(source.worlds).some(name=>!['NEWWORLD','OLDWORLD'].includes(name)))
+        throw new Error('Automatic visitation supports New World and Old World only');
+    automatic=autoVisit;active=true;phase='globals';
     enqueue(()=>{call('OGI_IMPORT_GLOBALS');report.globals=source.symbols.length;});
     for(const q of source.quests)enqueue(()=>{
         quests.create(q.title,q.title,q.section);
@@ -111,7 +134,7 @@ function begin() {
         }
     });
     enqueue(()=>{applyNpc(player,heroSource);world.setTime(source.time[1],source.time[2]);phase='hero ready';});
-    enqueue(()=>importWorld(source.world));
+    enqueue(()=>importWorld(source.world,automatic ? continueTour : null));
 }
 events.on('tick',()=>{
     resetIfFreshGame();
@@ -119,8 +142,14 @@ events.on('tick',()=>{
         const saved=debug.symbol('OGI_IMPORT_MASK');
         if(saved&&saved.value){finished=true;phase='loaded migrated save';importedWorlds.NEWWORLD=!!(saved.value&1);importedWorlds.OLDWORLD=!!(saved.value&2);}
     }
-    if(!active||!player.valid)return;
+    if(!active)return;
     try{
+        if(transition){
+            if(Date.now()-transition.started>180000)throw new Error('World transition timed out: '+transition.target);
+            if(!player.valid||!transition.ready||worldName()!==transition.target)return;
+            const ready=transition.onReady;transition=null;ready();return;
+        }
+        if(!player.valid)return;
         if(queue.length){const task=queue.shift();task();progress++;}
         else {
             active=false;finished=true;phase='complete';
@@ -131,9 +160,10 @@ events.on('tick',()=>{
 });
 // The second visited world is migrated on its first entry, then persisted by the engine's normal save.
 events.on('world:change',()=>{
+    if(transition){if(worldName()===transition.target)transition.ready=true;return;}
     resetIfFreshGame(true);
     if(!finished)return;
-    const name=world.name().split(/[\\/]/).pop().replace(/\.ZEN$/i,'').toUpperCase();
+    const name=worldName();
     if(source.worlds[name]&&!importedWorlds[name]){active=true;finished=false;importWorld(name);}
 });
 ui.tab('Original save import',()=>{
@@ -141,6 +171,7 @@ ui.tab('Original save import',()=>{
     ui.text(phase+' '+progress+'/'+total);
     if(error)ui.textWrapped(error);
     if(!active&&!finished&&ui.button('Import into a NEW game',-1,ui.fontSize()*2.3))try{begin();}catch(e){fail(e);}
+    if(!active&&!finished&&ui.button('Import and visit all supported worlds automatically'))try{begin(true);}catch(e){fail(e);}
     if(finished) {
         if(ui.button('Restore player position and equipment'))try{applyNpc(player,heroSource);}catch(e){fail(e);}
         if(source.worlds.OLDWORLD&&ui.button('Visit Old World (migration session only)'))world.changeLevel('oldworld.zen','START');
@@ -153,6 +184,7 @@ events.on('net:message',({peer,data})=>{
     try {
         const msg=JSON.parse(data);if(msg.token!==token){net.disconnect(peer);return;}
         if(msg.command==='begin')begin();
+        if(msg.command==='beginAuto')begin(true);
         if(msg.command==='repairHero'&&finished)applyNpc(player,heroSource);
         if(msg.command==='visitOld'&&finished)world.changeLevel('oldworld.zen','START');
         if(msg.command==='visitNew'&&finished)world.changeLevel('newworld.zen','START');

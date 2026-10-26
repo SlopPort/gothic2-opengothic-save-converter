@@ -7,6 +7,7 @@ from inventory_restore import source_inventory
 from migration_identity import source_fingerprint
 from routines import routine_function
 from source_coverage import behavior_coverage
+from source_validation import validate_source
 P=argparse.ArgumentParser(description=__doc__)
 P.add_argument('--game-dir',type=pathlib.Path,required=True)
 P.add_argument('--workspace',type=pathlib.Path,required=True)
@@ -17,6 +18,7 @@ GAME=args.game_dir.resolve()
 parsed=parse_dat(GAME/'_work/Data/Scripts/_compiled/GOTHIC.DAT')
 data=parsed['data'];symbols=parsed['symbols'];byname=parsed['byname'];records=parsed['records'];oldcode=parsed['code'];count=parsed['count']
 raw = json.loads((ROOT / 'source-save.json').read_text())
+validate_source(raw)
 def fix(value):
     if isinstance(value, str): return value.encode('latin1').decode(args.encoding, errors='replace')
     if isinstance(value, list): return [fix(x) for x in value]

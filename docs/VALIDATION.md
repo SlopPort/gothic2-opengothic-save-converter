@@ -16,7 +16,7 @@ The native resave passed the selected player-field checks, including exact playe
 
 A comparison of named script integer globals found changes in function-local, random, and per-frame scratch values; no story-global change was identified in that comparison. Full instance-reference bytes can change during native saving. These observations are limited to this test and do not establish semantic equality of every global or quest state. Pre-existing native save slots were unchanged by hash. The explicit `--legacy-player-only` path skips all-NPC reconciliation and identity verification and retains the earlier NPC quantity limitations. Source fingerprints check consistency; they do not authenticate an intermediate against deliberate forgery.
 
-The current Python suite has 145 passing tests both normally and under `-O`. Expanded JavaScript lifecycle tests also pass; the synthetic C++ reader check remains part of validation. Synthetic coverage includes identity mismatch/missing/duplicate/index checks, NPC state and inventory transforms, pointer remapping, equipment counts, hotkeys, bounded DAT/native readers, nested world archives, globals, journal/guild layouts, and exclusive output publication. A synthetic C++ save-reader round trip covering the ZenKit hotkey patch and JavaScript lifecycle tests exercising importer behavior also passed. These tests and the limited phone round trips do not establish full-storyline correctness or universal save compatibility.
+The current Python suite has 152 passing tests both normally and under `-O`. Expanded JavaScript lifecycle tests also pass; the synthetic C++ reader check remains part of validation. Synthetic coverage includes identity mismatch/missing/duplicate/index checks, NPC state and inventory transforms, pointer remapping, equipment counts, hotkeys, bounded DAT/native readers, nested world archives, globals, journal/guild layouts, and exclusive output publication. A synthetic C++ save-reader round trip covering the ZenKit hotkey patch and JavaScript lifecycle tests exercising importer behavior also passed. These tests and the limited phone round trips do not establish full-storyline correctness or universal save compatibility.
 
 ## Routine and AI development after checkpoint `fb14114`
 
@@ -29,6 +29,22 @@ The newer `--restart-saved-ai` experiment passed synthetic checks, offline final
 Identity mapping additionally rejects untagged active NPCs and duplicate cross-world player aliases; inactive native tombstones are allowed.
 
 Synthetic checks cover calendar normalization that rebases finite absolute AI end deadlines, preserves infinite deadlines and simulation-tick timers, and handles embedded transform-back data. Coverage reports expose counts under `pendingExactReconstruction` for saved current/next AI, news, and respawn gaps; `completeBehaviorCompatibility` remains false. Exported metadata is diagnostic unless a specific field is explicitly restored.
+
+## Optional automatic world visitation
+
+The importer now offers an automatic tour alongside the existing manual mode. `begin(true)` (or the optional authenticated diagnostic command `beginAuto`) imports the supported source worlds, waits for a matching `world:change` event and a valid player before continuing, returns to the source world, and reapplies the player state and source time. It supports only the New World and Old World; a one-world source completes without an unnecessary cross-world visit.
+
+JavaScript lifecycle tests pass for delayed world-change events, temporarily invalid players, one-world sources, and transition timeout handling. The first real-phone tour completed and produced a native save, but strict finalization rejected missing source NPC identities after world re-entry. This was a failed migration result, not a successful automatic conversion. Investigation identified the engine's routine-position reset on world re-entry as discarding corpses or NPCs without a routine destination.
+
+The identity patch now bypasses that reset for migration-tagged NPCs, preserving their imported positions/populations during the migration tour. The revised engine completed a fresh automatic supported-world tour returning to the source world, produced a native intermediate, and passed strict default finalization including all source NPC identities. Finalization strips migration keys, so the bypass does not apply to the final save during later normal play. With the importer and diagnostic listener disabled, the finalized save loaded, was saved into a new native slot, and reloaded with 3D rendering visible. The native resave passed the checked player-state, exact inventory-quantity, accessory, and spell-shortcut comparisons. Journal/dialog/guild payloads were unchanged, and NPC inventory multisets in both supported worlds were unchanged during this limited interval. Other live intervals have shown expected active-world inventory changes; this result does not make NPC inventories immutable.
+
+Global binary differences in this check were limited to function-local values and the engine's runtime string table; this observation does not establish equivalence of every script reference or quest behavior. Pre-existing native save slots were unchanged by hash. The automatic-tour result covers one source fixture and a short round trip, not broad transition, AI, or storyline correctness.
+
+Transition timeout evaluation now also runs while the player is invalid, and the corresponding JavaScript lifecycle test passes. Earlier manual-session round trips do not establish that this new automation works on the device. The tour does not automatically save, export, finalize offline, complete dialogue/cutscenes, or establish quest correctness.
+
+## Source validation and additional preparation cases
+
+Preparation and helper generation validate supported world scope and require exactly one explicitly player-marked NPC in the current world. Missing, duplicate, and wrong-world player records are rejected rather than inferred. A second real source save passed reader extraction, helper-assignment verification, and preparation only; it has not completed an engine migration. Another source outside supported current-world scope was rejected. These cases extend input-validation evidence, not engine or storyline compatibility.
 
 ## Fresh source/tool reproduction
 

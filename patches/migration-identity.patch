@@ -41,6 +41,14 @@
      }
    updateTransform();
    if(isUsingTorch)
+@@ -568,2 +583,7 @@
+ bool Npc::resetPositionToTA() {
++  // Migration snapshots already contain source positions and populations.
++  // Normal world re-entry must not discard tagged corpses or NPCs without a TA point.
++  if(!migrationKey.empty())
++    return true;
++
+   const bool g2       = owner.version().game==2;
 --- a/common/scripting/game/game_npc.cpp
 +++ b/common/scripting/game/game_npc.cpp
 @@ -371,6 +371,18 @@
