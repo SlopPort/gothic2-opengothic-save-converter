@@ -28,6 +28,10 @@ function applyNpc(npc, saved) {
     if(typeof npc.setMigrationKey!=='function')throw new Error('Migration identity engine patch is required');
     if(!npc.setMigrationKey(saved.migrationKey))throw new Error('Cannot set stable NPC migration identity');
     npc.setPuppet(true);
+    if(saved.routineFunction) {
+        if(typeof npc.setMigrationRoutine!=='function')throw new Error('Migration routine engine patch is required');
+        if(!npc.setMigrationRoutine(saved.routineFunction))throw new Error('Cannot restore daily routine '+saved.routineFunction);
+    }
     call('NPC_CLEARINVENTORY',[npc]);
     call(saved.helper,[],npc);
     for (const item of Object.keys(saved.inventory)) npc.addItem(item,saved.inventory[item]);
@@ -91,6 +95,8 @@ function begin() {
     if(!debug.signature('OGI_IMPORT_GLOBALS')||typeof debug.setInfoKnown!=='function')throw new Error('Required import API missing');
     if(typeof player.setMigrationKey!=='function')throw new Error('Apply patches/migration-identity.patch to the migration engine');
     if(!source.migrationId)throw new Error('Prepare a fresh migration workspace');
+    if(Object.values(source.worlds).some(records=>records.some(n=>n.routineFunction))&&typeof player.setMigrationRoutine!=='function')
+        throw new Error('Apply patches/migration-routines.patch to the migration engine');
     active=true;phase='globals';
     enqueue(()=>{call('OGI_IMPORT_GLOBALS');report.globals=source.symbols.length;});
     for(const q of source.quests)enqueue(()=>{

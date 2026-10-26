@@ -24,6 +24,17 @@ void npc(const VNpc& n) {
  *out << ",\"missions\":";ints(n.missions);
  *out << ",\"fightTactic\":"<<n.fight_tactic<<",\"bodyStateOverride\":"<<n.bs_interruptable_override<<",\"npcType\":"<<n.npc_type;
  *out << ",\"flags\":"<<n.flags<<",\"routine\":";s(n.current_routine);
+ *out << ",\"scriptWaypoint\":";s(n.script_waypoint);
+ *out << ",\"ai\":{\"startState\":";s(n.start_ai_state);
+ *out << ",\"currentValid\":"<<(n.current_state_valid?"true":"false")<<",\"currentName\":";s(n.current_state_name);
+ *out << ",\"currentIndex\":"<<n.current_state_index<<",\"currentIsRoutine\":"<<(n.current_state_is_routine?"true":"false");
+ *out << ",\"nextValid\":"<<(n.next_state_valid?"true":"false")<<",\"nextName\":";s(n.next_state_name);
+ *out << ",\"nextIndex\":"<<n.next_state_index<<",\"nextIsRoutine\":"<<(n.next_state_is_routine?"true":"false")<<",\"lastState\":"<<n.last_ai_state;
+ *out << ",\"hasRoutine\":"<<(n.has_routine?"true":"false")<<",\"respawn\":"<<(n.respawn?"true":"false")<<",\"respawnTime\":"<<n.respawn_time<<'}';
+ *out << ",\"news\":[";bool news_sep=false;for(auto& news:n.news)if(news){if(news_sep)*out<<',';news_sep=true;
+ *out << "{\"id\":"<<int(news->news_id)<<",\"told\":"<<(news->told?"true":"false")<<",\"spreadTime\":"<<news->spread_time<<",\"spreadType\":"<<int(news->spread_type)
+       <<",\"gossip\":"<<(news->gossip?"true":"false")<<",\"guildVictim\":"<<(news->guild_victim?"true":"false")<<",\"witness\":";s(news->witness_name);
+ *out<<",\"offender\":";s(news->offender_name);*out<<",\"victim\":";s(news->victim_name);*out<<'}';}*out<<']';
  *out << ",\"packed\":[";for(int i=0;i<9;i++){if(i)*out<<',';s(n.packed[i]);}*out<<']';
  *out << ",\"talents\":[";bool sep=false;for(auto& t:n.talents)if(t){if(sep)*out<<',';sep=true;*out<<'['<<t->talent<<','<<t->value<<','<<t->skill<<']';}*out<<']';
  *out << ",\"items\":[";sep=false; std::set<const VItem*> seen;

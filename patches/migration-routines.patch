@@ -1,0 +1,34 @@
+--- a/common/scripting/game/game_npc.cpp
++++ b/common/scripting/game/game_npc.cpp
+@@ -387,6 +387,23 @@
+   }
+ 
+ // --- items
++JSValue setMigrationRoutine(JSContext* ctx, JSValueConst obj, int argc, JSValueConst* argv) {
++  Npc* npc = self(ctx,obj);
++  if(npc==nullptr || argc<1)
++    return JS_FALSE;
++  auto name = js::str(ctx,argv[0]);
++  if(name.rfind("RTN_",0)!=0)
++    return JS_ThrowRangeError(ctx,"expected a named RTN_ routine");
++  auto* symbol = npc->world().script().getVm().find_symbol_by_name(name);
++  if(symbol==nullptr || symbol->type()!=zenkit::DaedalusDataType::FUNCTION || symbol->count()!=0 || symbol->is_external())
++    return JS_FALSE;
++  npc->clearAiQueue();
++  npc->clearGoTo();
++  npc->clearState(true);
++  npc->excRoutine(symbol->index());
++  return JS_TRUE;
++  }
++
+ JSValue addItem(JSContext* ctx, JSValueConst obj, int argc, JSValueConst* argv) {
+   Npc* npc = self(ctx,obj);
+   if(npc==nullptr || argc<1)
+@@ -593,6 +610,7 @@
+   js::fn(ctx,proto,"setUnconscious",setUnconscious,1);
+   js::fn(ctx,proto,"remove",    remove,0);
+   js::fn(ctx,proto,"setMigrationKey",setMigrationKey,1);
++  js::fn(ctx,proto,"setMigrationRoutine",setMigrationRoutine,1);
+   js::fn(ctx,proto,"addItem",   addItem,2);
+   js::fn(ctx,proto,"removeItem",removeItem,2);
+   js::fn(ctx,proto,"openTrade", openTrade,1);

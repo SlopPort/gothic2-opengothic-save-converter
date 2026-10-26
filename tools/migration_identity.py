@@ -19,7 +19,10 @@ def decode_key(data):
 
 def map_npcs(entries,world,source,fingerprint,byname):
     prefix='worlds/'+world.lower()+'.zen/'
-    mapped={};aliases=[]
+    mapped={};aliases=[];alias_keys=set()
+    for path in entries:
+        if path.startswith(prefix+'npc/') and path.endswith('/data') and path[:-4]+'migration-key' not in entries:
+            raise ValueError('Missing stable identity for an active native NPC')
     for path,data in entries.items():
         if not path.startswith(prefix) or not path.endswith('/migration-key'):continue
         relative=path[len(prefix):].split('/')
@@ -38,6 +41,9 @@ def map_npcs(entries,world,source,fingerprint,byname):
             raise ValueError('NPC migration identity does not match instance symbol')
         if source_world!=world:
             if not original['player']:raise ValueError('NPC migration identity belongs to another world')
+            alias_key=(source_world,index)
+            if alias_key in alias_keys:raise ValueError('Duplicate player alias in visited world')
+            alias_keys.add(alias_key)
             aliases.append((node,original))
             continue
         if index in mapped:raise ValueError('Duplicate NPC migration identity in world')

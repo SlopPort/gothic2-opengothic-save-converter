@@ -5,12 +5,13 @@ const path = require('node:path');
 const vm = require('node:vm');
 const script = fs.readFileSync(path.join(__dirname,'../mod/index.js'),'utf8');
 
-function fixture({level=0,mask=0,identityApi=true,failCalls=false}={}) {
+function fixture({level=0,mask=0,identityApi=true,failCalls=false,routineApi=true,routineFunction=null}={}) {
     const callbacks={};let calls=0;
-    const hero={player:true,level:0};
+    const hero={player:true,level:0,routineFunction};
     const source={world:'NEWWORLD',worlds:{NEWWORLD:[hero],OLDWORLD:[]},symbols:[],quests:[],infos:[],time:[1,8,0],migrationId:'synthetic'};
     const player={valid:true,level,experience:0,itemCount:()=>0};
     if(identityApi)player.setMigrationKey=()=>true;
+    if(routineApi)player.setMigrationRoutine=()=>true;
     const state={mask};
     const context=vm.createContext({
         require:(name)=>name==='./snapshot.json'?source:{enableRemoteControl:false},
@@ -53,5 +54,19 @@ function fixture({level=0,mask=0,identityApi=true,failCalls=false}={}) {
     f.callbacks.tick();assert.equal(f.run('status().phase'),'failed');
     assert.throws(()=>f.run('begin()'),/Previous migration failed/);
     f.callbacks['world:change']();assert.equal(f.run('status().phase'),'waiting');
+}
+{
+    const f=fixture({routineApi:false,routineFunction:'RTN_START_1'});
+    assert.throws(()=>f.run('begin()'),/migration-routines.patch/);
+    assert.equal(f.run('status().active'),false);
+}
+{
+    const f=fixture({routineFunction:'RTN_START_1'});const order=[];
+    Object.assign(f.player,{setPuppet:()=>{},setMigrationRoutine:name=>{order.push(name);return true;},
+                           setFlags:()=>{},setPosition:()=>{},setRotation:()=>{},setOverlays:()=>{}});
+    f.run("applyNpc(player,{migrationKey:'synthetic',routineFunction:'RTN_START_1',helper:'HELPER',inventory:{},slots:[],items:[],talents:[],position:[0,0,0],rotation:[[1,0,0],[0,1,0],[0,0,1]],attributes:[1]})");
+    assert.deepEqual(order,['RTN_START_1']);
+    f.player.setMigrationRoutine=()=>false;
+    assert.throws(()=>f.run("applyNpc(player,{migrationKey:'synthetic',routineFunction:'RTN_START_1'})"),/Cannot restore daily routine/);
 }
 console.log('Importer lifecycle checks passed');

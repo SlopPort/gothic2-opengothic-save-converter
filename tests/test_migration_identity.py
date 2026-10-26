@@ -54,5 +54,14 @@ class MigrationIdentityTests(unittest.TestCase):
         self.assertNotIn(self.node+'migration-key',result)
         self.assertEqual(archive(result['worlds/oldworld.zen.zip']),{name:data for name,data in nested.items() if not name.endswith('/migration-key')})
         self.assertEqual(result[self.node+'data'],self.entries[self.node+'data'])
+    def test_untagged_extra_active_npc_rejected(self):
+        self.entries['worlds/newworld.zen/npc/1/data']=struct.pack('<I',7)
+        with self.assertRaisesRegex(ValueError,'active native NPC'):self.mapping()
+    def test_duplicate_cross_world_player_alias_rejected(self):
+        self.source['worlds']['OLDWORLD']=[];self.source['worlds']['NEWWORLD'][0]['player']=True
+        entries={name.replace('newworld.zen','oldworld.zen'):data for name,data in self.entries.items()}
+        entries.update({name.replace('/npc/0/','/npc/1/'):data for name,data in list(entries.items())})
+        with self.assertRaisesRegex(ValueError,'Duplicate player alias'):
+            map_npcs(entries,'OLDWORLD',self.source,FINGERPRINT,self.names)
 
 if __name__=='__main__':unittest.main()

@@ -33,5 +33,24 @@ class NpcRestoreTests(unittest.TestCase):
             with self.assertRaises(ValueError):restore_npc_script_state(npc_record(),{field:[]})
     def test_verifier_detects_field_mismatch(self):
         with self.assertRaisesRegex(ValueError,'xp'):verify_npc_script_state(npc_record(),dict(xp=999))
+    def test_waypoint_resize_preserves_numeric_fields_and_tail(self):
+        data=npc_record()+b'opaque tail'
+        for waypoint in ('A_LONGER_SCRIPT_WAYPOINT',''):
+            result=restore_npc_script_state(data,dict(scriptWaypoint=waypoint,xp=42))
+            verify_npc_script_state(result,dict(scriptWaypoint=waypoint,xp=42))
+            self.assertTrue(result.endswith(b'opaque tail'))
+            self.assertEqual(npc_script_state(result)['xpNext'],200)
+    def test_start_ai_function_resolves_original_symbol(self):
+        source=dict(ai=dict(startState='ZS_TEST'))
+        names={'ZS_TEST':dict(index=123,type=5,count=0,flags=1)}
+        result=restore_npc_script_state(npc_record(),source,names)
+        verify_npc_script_state(result,source,names)
+        self.assertEqual(npc_script_state(result)['startAiState'],123)
+        with self.assertRaisesRegex(ValueError,'starting AI'):verify_npc_script_state(npc_record(),source,names)
+    def test_empty_start_ai_and_bad_function(self):
+        source=dict(ai=dict(startState=''))
+        result=restore_npc_script_state(npc_record(),source);verify_npc_script_state(result,source)
+        for fields in (dict(index=1,type=2,count=0,flags=1),dict(index=1,type=5,count=1,flags=1),dict(index=1,type=5,count=0,flags=8)):
+            with self.assertRaises(ValueError):restore_npc_script_state(npc_record(),dict(ai=dict(startState='BAD')),{'BAD':fields})
 
 if __name__=='__main__':unittest.main()

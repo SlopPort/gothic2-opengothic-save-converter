@@ -29,6 +29,7 @@ def main():
         else:
             q.add_argument('--native-save',type=Path,required=True);q.add_argument('--output',type=Path,required=True)
             q.add_argument('--legacy-player-only',action='store_true',help='Explicitly skip NPC reconciliation for older intermediates without stable identities')
+            q.add_argument('--restart-saved-ai',action='store_true',help='Experimental: restart saved AI script entrypoints instead of retaining migration-session state')
     a=p.parse_args()
     if a.command=='validate':
         print(json.dumps(validate_save(a.native_save.read_bytes()),indent=2))
@@ -53,6 +54,7 @@ def main():
         run(tool('verify_helpers'),w/'generated/GOTHIC.DAT',a.save_dir.resolve())
         print('Prepared. Continue with the manual engine migration in docs/WORKFLOW.md.')
     else:
+        if a.legacy_player_only and a.restart_saved_ai:raise ValueError('Saved AI restart requires NPC reconciliation')
         if a.output.exists():raise FileExistsError('Output exists; choose a new filename')
         if a.native_save.resolve()==a.output.resolve():raise ValueError('Input and output must differ')
         verify_original_scripts(a.game_dir,w)
@@ -75,6 +77,7 @@ def main():
         if not a.legacy_player_only:
             coverage=w/'npc-item-coverage.json';coverage.unlink(missing_ok=True)
             command=[sys.executable,ROOT/'tools/restore_npcs.py',*common,'--input',inventory_input,'--output',staging/'npcs-restored.sav']
+            if a.restart_saved_ai:command.append('--restart-saved-ai')
             result=subprocess.run([str(x) for x in command])
             if result.returncode:
                 missing=json.loads(coverage.read_text()).get('missing',[]) if coverage.exists() else []
@@ -90,7 +93,7 @@ def main():
             dat=(a.game_dir/'_work/Data/Scripts/_compiled/GOTHIC.DAT').read_bytes()
             source_bytes=(w/'source-save.json').read_bytes()
             verify_npcs(equipped,json.loads(source_bytes),source_fingerprint(dat,source_bytes),
-                        parse_dat(a.game_dir/'_work/Data/Scripts/_compiled/GOTHIC.DAT')['byname'])
+                        parse_dat(a.game_dir/'_work/Data/Scripts/_compiled/GOTHIC.DAT')['byname'],a.restart_saved_ai)
         write_archive(strip_migration_keys(equipped),staging/'candidate.sav')
         candidate=(staging/'candidate.sav').read_bytes()
         validate_save(candidate)

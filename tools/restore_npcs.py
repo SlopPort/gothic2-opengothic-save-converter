@@ -9,9 +9,12 @@ from migration_identity import map_npcs,source_fingerprint
 from native_format import Reader,archive,inventory,item,pack_visited_world,write_archive
 from npc_state import restore_npc_script_state,verify_npc_script_state,restore_npc_pose
 from spell_slots import restore_spell_slots
+from npc_ai import restart_saved_ai,verify_ai_restart
 
 
-def restore_npcs(entries,source,fingerprint,byname,extra_templates=None):
+def restore_npcs(entries,source,fingerprint,byname,extra_templates=None,restart_ai=False):
+    if restart_ai and any('ai' not in npc for records in source['worlds'].values() for npc in records):
+        raise ValueError('Saved AI restart requires a fresh source export containing AI metadata')
     worlds={}
     for world in source['worlds']:
         name=world.lower()+'.zen'
@@ -35,12 +38,14 @@ def restore_npcs(entries,source,fingerprint,byname,extra_templates=None):
                 if name not in byname or byname[name]['index'] not in templates:missing.add(name)
     if missing:return None,dict(missing=sorted(missing))
     result=dict(entries);report={}
+    ticks=struct.unpack_from('<Q',entries['game/session'])[0] if restart_ai else None
     for world,files in worlds.items():
         changed=0
         for node,npc in mappings[world]:
-            files[node+'data']=restore_npc_script_state(files[node+'data'],npc)
+            files[node+'data']=restore_npc_script_state(files[node+'data'],npc,byname)
             if any(name in npc for name in ('position','guildTrue','talents')):
                 files[node+'data']=restore_npc_pose(files[node+'data'],npc)
+            if restart_ai and 'ai' in npc:files[node+'data']=restart_saved_ai(files[node+'data'],npc,byname,ticks)
             wanted={byname[name]['index']:amount for name,amount in source_inventory(npc).items()}
             before=files.get(node+'inventory') or empty_inventory()
             restored=reconcile_inventory(before,wanted,clear_accessories=True,templates=templates)
@@ -54,11 +59,15 @@ def restore_npcs(entries,source,fingerprint,byname,extra_templates=None):
     return result,dict(missing=[],worlds=report)
 
 
-def verify_npcs(entries,source,fingerprint,byname):
+def verify_npcs(entries,source,fingerprint,byname,restart_ai=False):
+    if restart_ai and any('ai' not in npc for records in source['worlds'].values() for npc in records):
+        raise ValueError('Saved AI restart requires source AI metadata for every NPC')
+    ticks=struct.unpack_from('<Q',entries['game/session'])[0] if restart_ai else None
     for world in source['worlds']:
         files=entries if world=='NEWWORLD' else archive(entries['worlds/'+world.lower()+'.zen.zip'])
         for node,npc in map_npcs(files,world,source,fingerprint,byname):
-            verify_npc_script_state(files[node+'data'],npc)
+            verify_npc_script_state(files[node+'data'],npc,byname)
+            if restart_ai and 'ai' in npc:verify_ai_restart(files[node+'data'],npc,byname,ticks)
             if any(name in npc for name in ('position','guildTrue','talents')) and restore_npc_pose(files[node+'data'],npc)!=files[node+'data']:
                 raise ValueError('NPC pose, attitudes, or talents differ from source')
             data=files.get(node+'inventory') or empty_inventory();actual=Counter()
@@ -75,6 +84,7 @@ def verify_npcs(entries,source,fingerprint,byname):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     for name in ('game-dir','workspace','input','output'):parser.add_argument('--'+name,type=Path,required=True)
+    parser.add_argument('--restart-saved-ai',action='store_true',help='Experimental restart of saved AI entrypoints; does not resume original queues')
     args=parser.parse_args()
     if args.input.resolve()==args.output.resolve():raise ValueError('Input and output must differ')
     original_dat=(args.game_dir/'_work/Data/Scripts/_compiled/GOTHIC.DAT').read_bytes()
@@ -83,7 +93,7 @@ def main():
     templates={}
     for path in (args.workspace/'item-templates').glob('*.item'):
         raw=path.read_bytes();r=Reader(raw);record=item(r);r.end();templates[record['symbol']]=raw
-    result,report=restore_npcs(archive(args.input.read_bytes()),source,source_fingerprint(original_dat,source_bytes),byname,templates)
+    result,report=restore_npcs(archive(args.input.read_bytes()),source,source_fingerprint(original_dat,source_bytes),byname,templates,args.restart_saved_ai)
     (args.workspace/'npc-item-coverage.json').write_text(json.dumps(report,indent=2))
     if result is None:raise ValueError('Missing NPC inventory item templates; see npc-item-coverage.json')
     write_archive(result,args.output)

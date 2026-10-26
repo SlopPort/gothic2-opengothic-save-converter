@@ -33,6 +33,9 @@ class NpcInventoryTests(unittest.TestCase):
     def test_engine_empty_inventory_entry_is_supported(self):
         self.entries[self.node+'inventory']=b'';self.source['worlds']['NEWWORLD'][0]['packed']=[]
         result,report=self.restore();verify_npcs(result,self.source,FINGERPRINT,self.names)
+    def test_saved_ai_restart_requires_new_source_metadata(self):
+        with self.assertRaisesRegex(ValueError,'AI metadata'):
+            restore_npcs(self.entries,self.source,FINGERPRINT,self.names,restart_ai=True)
     def test_duplicate_instance_names_still_map_exact_source_indices(self):
         second=dict(instance='NPC_A',player=False,packed=['ITEM_A:4'],items=[])
         self.source['worlds']['NEWWORLD'].append(second)

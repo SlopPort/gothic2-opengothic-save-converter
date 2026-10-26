@@ -4,6 +4,7 @@ from pathlib import Path
 from native_format import Reader,archive,write_archive
 from native_validation import MAGIC,validate_save
 from script_state import restore_globals,restore_journal,string
+from npc_ai import rebase_world_calendars
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -22,13 +23,15 @@ def main():
         raise ValueError('Invalid source calendar or playtime')
     worldtime=((day*24+hour)*60+minute)*60000
     entries['header']=MAGIC+struct.pack('<H',version)+string('ORIGINAL SAVE IMPORT (EXPERIMENTAL)')+string(world)+calendar_bytes+struct.pack('<qQ',worldtime,source['playSeconds']*1000)+bytes([game])+tail
-    # Preserve simulation ticks and NPC timers; restore only the world calendar.
-    session=bytearray(entries['game/session']);struct.pack_into('<q',session,8,worldtime);entries['game/session']=session
+    # Preserve simulation ticks; calendar-based AI deadlines follow the calendar shift.
+    session=bytearray(entries['game/session']);old_calendar=struct.unpack_from('<q',session,8)[0]
+    entries,calendar_deadlines=rebase_world_calendars(entries,worldtime-old_calendar)
+    struct.pack_into('<q',session,8,worldtime);entries['game/session']=session
     entries['game/quests']=restore_journal(entries['game/quests'],source['quests'])
     entries['game/daedalus'],globals_report=restore_globals(entries['game/daedalus'],source['symbols'])
     write_archive(entries,args.output)
     report=dict(output=str(args.output),version=version,world=world,**globals_report,
-                journalTopics=len(source['quests']),calendar=source['time'],nativePlayTicksPreserved=True,
+                journalTopics=len(source['quests']),calendar=source['time'],nativePlayTicksPreserved=True,npcCalendarDeadlinesRebased=calendar_deadlines,
                 entries=len(entries),sha256=hashlib.sha256(args.output.read_bytes()).hexdigest(),
                 limitations='Intermediate normalization only. Run world restoration and equipment restoration next; exact AI compatibility remains unsupported.')
     (root/'normalization-report.json').write_text(json.dumps(report,indent=2))

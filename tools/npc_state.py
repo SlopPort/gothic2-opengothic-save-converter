@@ -24,14 +24,24 @@ def npc_script_state(data):
     result['startAiState']=ints(1,'startAiState')[0]
     r.s();r.skip(3*4)
     result['aiVars']=ints(100,'aiVars')
-    r.s()
+    offsets['scriptWaypoint']=r.p
+    result['scriptWaypoint']=r.s().decode('latin1')
+    offsets['scriptWaypointEnd']=r.p
     for name in ('xp','xpNext','lp','bodyStateOverride','noFocus'):
         result[name]=ints(1,name)[0]
     result['prefix_size']=r.p;result['offsets']=offsets
     return result
 
 
-def restore_npc_script_state(data,source):
+def start_ai_function(source,byname):
+    name=source['ai']['startState'].upper()
+    if not name:return 0
+    symbol=(byname or {}).get(name)
+    if not symbol or symbol['type']!=5 or symbol['count']!=0 or symbol['flags']&12:
+        raise ValueError('Source start AI state is not a matching internal function')
+    return symbol['index']
+
+def restore_npc_script_state(data,source,byname=None):
     native=npc_script_state(data);result=bytearray(data)
     arrays={'attributes':8,'protection':8,'aiVars':100,'missions':5}
     for name,count in arrays.items():
@@ -45,10 +55,16 @@ def restore_npc_script_state(data,source):
     if 'npcType' in source:struct.pack_into('<i',result,native['offsets']['type'],source['npcType'])
     for name in ('flags','guild','level','xp','xpNext','lp','fightTactic','bodyStateOverride'):
         if name in source:struct.pack_into('<i',result,native['offsets'][name],source[name])
+    if 'ai' in source and 'startState' in source['ai']:
+        struct.pack_into('<i',result,native['offsets']['startAiState'],start_ai_function(source,byname))
+    if 'scriptWaypoint' in source:
+        value=source['scriptWaypoint'].encode('latin1')
+        if len(value)>1000000:raise ValueError('Invalid source script waypoint length')
+        result[native['offsets']['scriptWaypoint']:native['offsets']['scriptWaypointEnd']]=struct.pack('<I',len(value))+value
     return bytes(result)
 
 
-def verify_npc_script_state(data,source):
+def verify_npc_script_state(data,source,byname=None):
     native=npc_script_state(data)
     if 'npcType' in source and native['type']!=source['npcType']:
         raise ValueError('NPC script field differs from source: npcType')
@@ -56,6 +72,10 @@ def verify_npc_script_state(data,source):
         if name in source and native[name]!=source[name]:raise ValueError('NPC script field differs from source: '+name)
     if 'hitChance' in source and native['hitChance'][1:]!=source['hitChance']:
         raise ValueError('NPC hit chances differ from source')
+    if 'scriptWaypoint' in source and native['scriptWaypoint']!=source['scriptWaypoint']:
+        raise ValueError('NPC script waypoint differs from source')
+    if 'ai' in source and 'startState' in source['ai'] and native['startAiState']!=start_ai_function(source,byname):
+        raise ValueError('NPC starting AI state differs from source')
 
 
 def npc_pose_state(data):

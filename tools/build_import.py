@@ -5,6 +5,8 @@ import argparse
 from dat_symbols import parse_dat
 from inventory_restore import source_inventory
 from migration_identity import source_fingerprint
+from routines import routine_function
+from source_coverage import behavior_coverage
 P=argparse.ArgumentParser(description=__doc__)
 P.add_argument('--game-dir',type=pathlib.Path,required=True)
 P.add_argument('--workspace',type=pathlib.Path,required=True)
@@ -42,6 +44,7 @@ for name, values in snapshot['symbols']:
 function('OGI_IMPORT_GLOBALS',gcode)
 for world, npcs in snapshot['worlds'].items():
     for index,n in enumerate(npcs):
+        n['routineFunction']=routine_function(raw['worlds'][world][index].get('routine',''),byname)
         c = bytearray([80]); c.extend(u32(byname['SELF']['index']))
         for field,key in [('LEVEL','level'),('EXP','xp'),('EXP_NEXT','xpNext'),('LP','lp'),('GUILD','guild'),('AIVAR','aiVars'),('ATTRIBUTE','attributes'),('PROTECTION','protection'),('HITCHANCE','hitChance')]:
             values=n[key] if isinstance(n[key],list) else [n[key]]
@@ -65,9 +68,10 @@ patched=data[:1]+u32(len(records))+b''.join(u32(i) for i in sort_order)+b''.join
 # Keep CP1250 only in the human-readable report; use the raw snapshot for game text.
 for new,old in zip(snapshot['quests'],raw['quests']): new.update(old)
 (mod/'snapshot.json').write_text(json.dumps(snapshot,ensure_ascii=True,separators=(',',':')),encoding='utf8')
-(mod/'manifest.json').write_text(json.dumps(dict(id='og-save-import',name='Import zapisu Steam Ă˘â‚¬â€ť eksperymentalny',version='0.1.0',main='index.js',type='script',apiVersion=1,game=['G2']),ensure_ascii=True),encoding='utf8')
+(mod/'manifest.json').write_text(json.dumps(dict(id='og-save-import',name='Original save import (experimental)',version='0.1.0',main='index.js',type='script',apiVersion=1,game=['G2']),ensure_ascii=True),encoding='utf8')
 hero=next(n for n in snapshot['worlds'][snapshot['world']] if n['player'])
 report=dict(sourceSha256=hashlib.sha256(data).hexdigest(),originalSymbols=count,patchedSymbols=len(records),originalBytecode=len(oldcode),addedBytecode=len(extra_code),assignments=assignments,globals=len(snapshot['symbols']),skippedSymbols=skipped,quests=len(snapshot['quests']),infos=len(snapshot['infos']),hero={k:hero[k] for k in ['level','xp','lp','guild','attributes','hitChance']},inventoryKinds=len(hero['inventory']),gold=hero['inventory'].get('ITMI_GOLD'),limitations=['World object, container and trigger state is not imported','NPC AI queues, news, routines and spawn scheduling are not reproduced exactly','World data, calendar, playtime, guild relations and accessory pointers are restored by the subsequent offline finalization stage'])
+report['behaviorCoverage']=behavior_coverage(raw)
 (output/'build-report.json').write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding='utf8')
 import shutil,secrets
 shutil.copyfile(pathlib.Path(__file__).resolve().parents[1]/'mod/index.js',mod/'index.js')

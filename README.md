@@ -10,13 +10,17 @@ The Android graphics work lives separately in [opengothic-android-adreno610](htt
 
 The earlier public revision `33441b5` completed one fresh-workspace migration and native load/save/reload on the matching Android build, including corrected player inventory quantities. That evidence covers the earlier player-focused pipeline, not the new all-NPC identity workflow.
 
-Current development adds source-bound NPC identities and offline reconciliation of supported NPC script fields, inventory quantities, accessories, spell shortcuts, pose, attitudes, and talents. One fresh identity-based Android migration completed default finalization and a native load/save/reload with the importer disabled. Supported source NPC fields and quantities were checked before publication; the native resave preserved the checked player fields, exact player quantities, accessories, and spell shortcuts. Active-world NPC inventories can change during live AI simulation. See [validation details](docs/VALIDATION.md). Independent clean-checkout reproduction, additional source saves/script editions, and full-storyline testing remain pending.
+Current development adds source-bound NPC identities and offline reconciliation of supported NPC script fields, inventory quantities, accessories, spell shortcuts, pose, attitudes, and talents. One fresh identity-based Android migration completed default finalization and a native load/save/reload with the importer disabled. Supported source NPC fields and quantities were checked before publication; the native resave preserved the checked player fields, exact player quantities, accessories, and spell shortcuts. Active-world NPC inventories can change during live AI simulation. See [validation details](docs/VALIDATION.md). A fresh Windows source snapshot reproduced the readers and generated inputs, then reproduced default finalization using an existing engine intermediate. A clean Android build and complete fresh engine migration from that snapshot, additional source saves/script editions, and full-storyline testing remain pending.
 
 The supported workflow currently requires a **manual migration session in the matching engine**. It is not a one-click conversion of an arbitrary save folder. The original save is read by the tools; outputs go into a separate workspace and new save files.
+
+Named daily routine restoration is now implemented in development: valid internal zero-argument `RTN_*` functions replace default schedules through an additional engine patch. A rebuilt-engine migration and strict finalization exercised those schedules. The default routine/calendar/waypoint/start-state workflow has also completed one native load/save/reload with the importer disabled. The optional saved-AI restart experiment has also completed one native load/save/reload, with the limitations described below.
 
 ### Implemented scope of the prototype
 
 - Script integer globals/arrays, journal entries, and known-dialog information.
+- Named daily routine schedules, plus optional exported script waypoints and start-state function fields. Current/queued AI execution, news, and respawn scheduling are not reconstructed merely by capturing their metadata.
+- Absolute NPC AI end deadlines rebased with calendar normalization; simulation-tick waits and infinite deadlines remain unchanged.
 - Source-identified NPC reconciliation in both supported worlds: exact inventory quantities, supported script fields, accessories, spell shortcuts, position/heading, model scale/fatness, attitudes, true guild, and talents. One engine round trip has been tested; live AI may subsequently change active-world NPC inventories.
 - Native world generation followed by offline restoration of loose world items, container contents, container/door locks, and the original guild-attitude table.
 - Available enable/count flags of uniquely matched triggers and a subset of uniquely matched movers. Some original animation state is only approximated.
@@ -27,7 +31,7 @@ The supported workflow currently requires a **manual migration session in the ma
 
 - Only a current `NEWWORLD` save with `NEWWORLD` and optional `OLDWORLD` data is supported. Addonworld, other current worlds, Gothic 1, mods, and arbitrary engine versions are unsupported.
 - The binary layout is restricted to the tested **OpenGothic format 56** and the pinned [Android fork revision](https://github.com/borsuczyna/OpenGothic-Android/tree/118afdc10d79a7f3357e28c6ee52f6fc2fba8586). A matching format number alone does not establish compatibility with another engine revision.
-- Exact AI queues, NPC news, routines, spawn scheduling, all interactions, and all dynamic world relationships are not reproduced. Duplicate or ambiguous object matches are skipped or rejected rather than treated as exact matches.
+- Exact current/queued AI execution, NPC news, spawn scheduling, all interactions, and all dynamic world relationships are not reproduced. Restoring a named daily routine schedule does not resume the original in-progress AI state. Duplicate or ambiguous object matches are skipped or rejected rather than treated as exact matches.
 - The engine inventory-clear operation retains equipped/mission items. The default development path reconciles source-identified NPC quantities offline. The explicit `--legacy-player-only` fallback corrects only the player and leaves known NPC overcounts unresolved.
 - Trigger/mover restoration is partial; the full original engine behavior is not emulated. No full-storyline regression test has been performed.
 - The tested source text used CP1250. Other text encodings and game editions need validation. The original and migration sessions must use matching game scripts/data.
@@ -48,7 +52,7 @@ With a multi-configuration generator, executables may be in `build/Release` inst
 
 ## Migration workflow
 
-Read [the complete workflow](docs/WORKFLOW.md) before running it. Default finalization requires a fresh workspace and NEW migration game using an engine built with `patches/migration-identity.patch`. Older intermediates cannot acquire missing identities during offline finalization. It requires your own game data and a fresh migration session. No personal save, game archive, modified `GOTHIC.DAT`, snapshot, signing key, or compiled game asset is included in this repository.
+Read [the complete workflow](docs/WORKFLOW.md) before running it. Default finalization requires a fresh workspace and NEW migration game using an engine built with `patches/migration-identity.patch`, followed by `patches/migration-routines.patch`. Older intermediates cannot acquire missing identities during offline finalization. It requires your own game data and a fresh migration session. No personal save, game archive, modified `GOTHIC.DAT`, snapshot, signing key, or compiled game asset is included in this repository.
 
 ```sh
 python convert.py prepare --game-dir /path/to/Gothic-II --save-dir /path/to/savegame1 --workspace work/session --tools-dir build
@@ -59,6 +63,12 @@ python convert.py finalize --game-dir /path/to/Gothic-II --workspace work/sessio
 Finalization normalizes the session, restores supported world state, generates missing item templates, reconciles source-identified NPC state and player inventory, and checks the result before atomic no-overwrite publication. Source identities bind the original DAT bytes and raw decoded-source JSON bytes; they detect mismatched inputs, not maliciously forged saves. Temporary migration-key entries are stripped from the active and visited worlds before final output. Generated DAT helpers remain part of the migration scripts.
 
 Use `--legacy-player-only` only to explicitly accept an incomplete older-intermediate workflow: all-NPC reconciliation and identity verification are skipped, while player checks remain. Structural guards use explicit exceptions and remain enabled under Python optimization mode (`-O`). Neither mode certifies quest logic or AI correctness.
+
+## Optional saved-AI restart experiment
+
+`finalize --restart-saved-ai` is off by default and cannot be combined with `--legacy-player-only`. It selects the saved current AI name when valid, otherwise the saved next name, and resolves that entrypoint plus optional `_LOOP`/`_END` functions in the original DAT. It restarts the selected script state after clearing migration-session action queues, synchronization counters, and stale waits. State age and the next loop are reset to session ticks. Routine calendar deadlines are preserved; non-routine or absent states use an infinite deadline.
+
+This restarts a script entrypoint; it does not resume original queues, timers, animations, or dynamic relationships. One opt-in phone load/save/reload passed the checked player fields, exact player quantities, accessories, and spell shortcuts. Dead source NPCs are skipped to avoid repeated death initialization; every source NPC must have exported AI metadata. Missing-waypoint diagnostics were still observed. This limited result does not establish correct execution of every restarted state.
 
 ## Check a native save
 
