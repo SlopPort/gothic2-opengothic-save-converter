@@ -1,0 +1,36 @@
+--- a/include/zenkit/vobs/Misc.hh
++++ b/include/zenkit/vobs/Misc.hh
+@@ -542,6 +542,7 @@
+ 		std::string packed[packed_count];
+ 		std::vector<std::unique_ptr<News>> news;
+ 		std::vector<std::shared_ptr<VItem>> items;
++		std::vector<int32_t> item_short_keys;
+ 		std::vector<std::unique_ptr<Slot>> slots;
+ 
+ 		bool current_state_valid;
+--- a/src/vobs/Misc.cc
++++ b/src/vobs/Misc.cc
+@@ -372,12 +372,13 @@
+ 
+ 		auto item_count = static_cast<size_t>(r.read_int()); // itemCount
+ 		this->items.resize(item_count);
++		this->item_short_keys.assign(item_count, -1);
+ 
+ 		for (auto i = 0u; i < item_count; ++i) {
+ 			this->items[i] = r.read_object<VItem>(version); // item0
+ 
+ 			if ((this->items[i]->s_flags & 0x200) != 0) {
+-				(void) r.read_int(); // shortKey<n> // TODO
++				this->item_short_keys[i] = r.read_int(); // shortKey<n>
+ 			}
+ 		}
+ 
+@@ -539,7 +540,7 @@
+ 			w.write_object("item" + std::to_string(i), item, version);
+ 
+ 			if ((item->s_flags & 0x200) != 0) {
+-				w.write_int("shortKey" + std::to_string(i), 0); // TODO
++				w.write_int("shortKey" + std::to_string(i), i < this->item_short_keys.size() ? this->item_short_keys[i] : 0);
+ 			}
+ 		}
+ 

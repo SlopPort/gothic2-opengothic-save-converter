@@ -6,7 +6,9 @@ sys.path.insert(0,str(Path(__file__).resolve().parent/'tools'))
 from native_validation import validate_save
 from workspace_checks import verify_original_scripts
 from player_checks import verify_player
-from native_format import archive
+from native_format import archive,write_archive
+from restore_npcs import verify_npcs
+from migration_identity import source_fingerprint,strip_migration_keys
 from dat_symbols import parse_dat
 ROOT=Path(__file__).resolve().parent
 
@@ -26,6 +28,7 @@ def main():
             q.add_argument('--save-dir',type=Path,required=True);q.add_argument('--encoding',default='cp1250')
         else:
             q.add_argument('--native-save',type=Path,required=True);q.add_argument('--output',type=Path,required=True)
+            q.add_argument('--legacy-player-only',action='store_true',help='Explicitly skip NPC reconciliation for older intermediates without stable identities')
     a=p.parse_args()
     if a.command=='validate':
         print(json.dumps(validate_save(a.native_save.read_bytes()),indent=2))
@@ -68,8 +71,27 @@ def main():
             if not missing:raise RuntimeError('World conversion failed; see the error above')
             run(tool('export_items'),a.game_dir.resolve()/'_work/Data/Scripts/_compiled/GOTHIC.DAT',w/'item-templates',*missing)
             run(*command)
-        py('restore_inventory.py',*common,'--input',staging/'world-restored.sav','--output',staging/'inventory-restored.sav')
-        py('restore_equipment.py',*common,'--input',staging/'inventory-restored.sav','--output',staging/'candidate.sav')
+        inventory_input=staging/'world-restored.sav'
+        if not a.legacy_player_only:
+            coverage=w/'npc-item-coverage.json';coverage.unlink(missing_ok=True)
+            command=[sys.executable,ROOT/'tools/restore_npcs.py',*common,'--input',inventory_input,'--output',staging/'npcs-restored.sav']
+            result=subprocess.run([str(x) for x in command])
+            if result.returncode:
+                missing=json.loads(coverage.read_text()).get('missing',[]) if coverage.exists() else []
+                if not missing:raise RuntimeError('NPC reconciliation failed; see the error above')
+                run(tool('export_items'),a.game_dir.resolve()/'_work/Data/Scripts/_compiled/GOTHIC.DAT',w/'item-templates',*missing)
+                run(*command)
+            inventory_input=staging/'npcs-restored.sav'
+        else:print('Legacy mode: NPC quantities are NOT reconciled')
+        py('restore_inventory.py',*common,'--input',inventory_input,'--output',staging/'inventory-restored.sav')
+        py('restore_equipment.py',*common,'--input',staging/'inventory-restored.sav','--output',staging/'equipped.sav')
+        equipped=archive((staging/'equipped.sav').read_bytes())
+        if not a.legacy_player_only:
+            dat=(a.game_dir/'_work/Data/Scripts/_compiled/GOTHIC.DAT').read_bytes()
+            source_bytes=(w/'source-save.json').read_bytes()
+            verify_npcs(equipped,json.loads(source_bytes),source_fingerprint(dat,source_bytes),
+                        parse_dat(a.game_dir/'_work/Data/Scripts/_compiled/GOTHIC.DAT')['byname'])
+        write_archive(strip_migration_keys(equipped),staging/'candidate.sav')
         candidate=(staging/'candidate.sav').read_bytes()
         validate_save(candidate)
         verify_player(archive(candidate),json.loads((w/'source-save.json').read_text()),

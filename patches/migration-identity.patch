@@ -1,0 +1,72 @@
+--- a/common/world/objects/npc.h
++++ b/common/world/objects/npc.h
+@@ -81,6 +81,9 @@
+     void       save(Serialize& fout, size_t id, std::string_view directory);
+     void       load(Serialize& fout, size_t id, std::string_view directory);
+     void       postValidate();
++
++    // Temporary conversion identity; serialized in an optional independent entry.
++    std::string migrationKey;
+ 
+     void       drawVobBox(DbgPainter& p) const;
+     void       drawVobRay(DbgPainter& p, const Npc& npc) const;
+--- a/common/world/objects/npc.cpp
++++ b/common/world/objects/npc.cpp
+@@ -283,6 +283,11 @@
+       fout.write(uint8_t(1),light->get_int(),remaining);
+       }
+     }
++  if(!migrationKey.empty()) {
++    fout.setEntry("worlds/",fout.worldName(),directory,id,"/migration-key");
++    fout.write(uint32_t(1),migrationKey);
++    }
++
+   }
+ 
+ void Npc::load(Serialize &fin, size_t id, std::string_view directory) {
+@@ -388,6 +393,16 @@
+       if(light!=nullptr && light->type()==zenkit::DaedalusDataType::INT && light->get_int()==spell)
+         visual.restoreLightSpell(owner,*this,spell,remaining);
+       }
++    }
++  migrationKey.clear();
++  if(fin.setEntry("worlds/",fin.worldName(),directory,id,"/migration-key")) {
++    uint32_t version = 0;
++    fin.read(version);
++    if(version!=1)
++      throw std::runtime_error("unsupported migration-key version");
++    fin.read(migrationKey);
++    if(migrationKey.size()>256)
++      throw std::runtime_error("invalid migration-key size");
+     }
+   updateTransform();
+   if(isUsingTorch)
+--- a/common/scripting/game/game_npc.cpp
++++ b/common/scripting/game/game_npc.cpp
+@@ -371,6 +371,18 @@
+   if(wp==nullptr)
+     return JS_FALSE;
+   npc->setPosition(wp->position());
++  return JS_TRUE;
++  }
++
++// Optional source identity for disposable migration sessions.
++JSValue setMigrationKey(JSContext* ctx, JSValueConst obj, int argc, JSValueConst* argv) {
++  Npc* npc = self(ctx,obj);
++  if(npc==nullptr || argc<1)
++    return JS_FALSE;
++  auto key = js::str(ctx,argv[0]);
++  if(key.size()>256)
++    return JS_ThrowRangeError(ctx,"migration key is too long");
++  npc->migrationKey = std::move(key);
+   return JS_TRUE;
+   }
+ 
+@@ -580,6 +592,7 @@
+   js::fn(ctx,proto,"finish",    finish,0);
+   js::fn(ctx,proto,"setUnconscious",setUnconscious,1);
+   js::fn(ctx,proto,"remove",    remove,0);
++  js::fn(ctx,proto,"setMigrationKey",setMigrationKey,1);
+   js::fn(ctx,proto,"addItem",   addItem,2);
+   js::fn(ctx,proto,"removeItem",removeItem,2);
+   js::fn(ctx,proto,"openTrade", openTrade,1);

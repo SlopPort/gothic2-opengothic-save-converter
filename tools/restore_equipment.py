@@ -2,6 +2,7 @@
 from pathlib import Path
 import argparse,json,struct
 from accessories import restore_accessories
+from spell_slots import restore_spell_slots
 from native_format import archive,write_archive
 from dat_symbols import parse_dat
 
@@ -25,6 +26,8 @@ def main():
     inventory_path=paths[0][:-4]+'inventory'
     if inventory_path not in entries:raise ValueError('Native player inventory is missing')
     entries[inventory_path],restored=restore_accessories(entries[inventory_path],heroes[0]['items'],byname)
+    if 'spellHotkeys' in heroes[0]:
+        entries[inventory_path]=restore_spell_slots(entries[inventory_path],heroes[0]['spellHotkeys'],byname)
     write_archive(entries,args.output)
     print('Accessory slots restored:',restored)
 

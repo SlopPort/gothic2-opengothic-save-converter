@@ -25,6 +25,8 @@ function thaw() { for (const n of frozen) if(n.valid) n.setPuppet(false); frozen
 function fail(e) {error=String(e);phase='failed';active=false;queue=[];thaw();console.error(error);}
 function enqueue(fn) {queue.push(fn);total++;}
 function applyNpc(npc, saved) {
+    if(typeof npc.setMigrationKey!=='function')throw new Error('Migration identity engine patch is required');
+    if(!npc.setMigrationKey(saved.migrationKey))throw new Error('Cannot set stable NPC migration identity');
     npc.setPuppet(true);
     call('NPC_CLEARINVENTORY',[npc]);
     call(saved.helper,[],npc);
@@ -73,10 +75,22 @@ function importWorld(name) {
     });
 }
 function distance(n,r) {return (n.x-r.position[0])**2+(n.y-r.position[1])**2+(n.z-r.position[2])**2;}
+function resetIfFreshGame(allowFailed=false) {
+    if(active||!player.valid||player.level!==0||player.experience!==0)return;
+    const mask=debug.symbol('OGI_IMPORT_MASK');
+    if(!mask||mask.value!==0||(!finished&&!(allowFailed&&error)))return;
+    thaw();queue=[];active=false;finished=false;phase='waiting';error='';
+    progress=0;total=0;importedWorlds={};
+    report={globals:0,infos:0,quests:0,npcs:0,spawned:0,removed:0,failed:[]};
+}
 function begin() {
+    resetIfFreshGame();
     if(active||finished)throw new Error('Already started');
+    if(error)throw new Error('Previous migration failed; start a NEW game before retrying');
     if(!player.valid||player.level!==0||player.experience!==0)throw new Error('Import requires a NEW game');
     if(!debug.signature('OGI_IMPORT_GLOBALS')||typeof debug.setInfoKnown!=='function')throw new Error('Required import API missing');
+    if(typeof player.setMigrationKey!=='function')throw new Error('Apply patches/migration-identity.patch to the migration engine');
+    if(!source.migrationId)throw new Error('Prepare a fresh migration workspace');
     active=true;phase='globals';
     enqueue(()=>{call('OGI_IMPORT_GLOBALS');report.globals=source.symbols.length;});
     for(const q of source.quests)enqueue(()=>{
@@ -94,6 +108,7 @@ function begin() {
     enqueue(()=>importWorld(source.world));
 }
 events.on('tick',()=>{
+    resetIfFreshGame();
     if(!active&&!finished&&player.valid){
         const saved=debug.symbol('OGI_IMPORT_MASK');
         if(saved&&saved.value){finished=true;phase='loaded migrated save';importedWorlds.NEWWORLD=!!(saved.value&1);importedWorlds.OLDWORLD=!!(saved.value&2);}
@@ -110,6 +125,7 @@ events.on('tick',()=>{
 });
 // The second visited world is migrated on its first entry, then persisted by the engine's normal save.
 events.on('world:change',()=>{
+    resetIfFreshGame(true);
     if(!finished)return;
     const name=world.name().split(/[\\/]/).pop().replace(/\.ZEN$/i,'').toUpperCase();
     if(source.worlds[name]&&!importedWorlds[name]){active=true;finished=false;importWorld(name);}

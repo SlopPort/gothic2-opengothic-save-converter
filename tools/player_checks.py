@@ -5,6 +5,7 @@ from accessories import restore_accessories
 from inventory_restore import source_inventory
 from native_format import inventory_layout
 from npc_state import npc_script_state
+from spell_slots import restore_spell_slots
 
 
 def verify_player(entries,source,byname):
@@ -28,4 +29,6 @@ def verify_player(entries,source,byname):
     if counts!=expected:mismatches.append('inventoryAmounts')
     restored,_=restore_accessories(inventory,hero['items'],byname)
     if restored!=inventory:mismatches.append('accessoryPointers')
+    if 'spellHotkeys' in hero and restore_spell_slots(inventory,hero['spellHotkeys'],byname)!=inventory:
+        mismatches.append('spellShortcuts')
     if mismatches:raise ValueError('Final player differs from source: '+', '.join(mismatches))

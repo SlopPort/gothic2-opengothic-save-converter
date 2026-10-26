@@ -7,6 +7,7 @@
 #include <set>
 #include <cmath>
 #include <functional>
+#include <limits>
 using namespace zenkit;
 std::ostream* out;
 void s(const std::string& t) { *out << '"'; for(unsigned char c:t) { if(c=='"'||c=='\\') *out << '\\' << c; else if(c<32 || c>=128) *out << "\\u" << std::hex << std::setw(4) << std::setfill('0') << int(c) << std::dec; else *out << c; } *out << '"'; }
@@ -18,17 +19,25 @@ void npc(const VNpc& n) {
  for(int i=0;i<3;i++){if(i)*out<<',';*out<<'['<<n.rotation[i][0]<<','<<n.rotation[i][1]<<','<<n.rotation[i][2]<<']';}*out<<']';
  *out << ",\"attributes\":";ints(n.attributes);*out<<",\"hitChance\":";ints(n.hit_chance);*out<<",\"aiVars\":";ints(n.aivar);
  *out << ",\"protection\":";ints(n.protection);*out<<",\"overlays\":[";for(size_t i=0;i<n.overlays.size();i++){if(i)*out<<',';s(n.overlays[i]);}*out<<']';
+ *out << ",\"modelScale\":["<<n.model_scale.x<<','<<n.model_scale.y<<','<<n.model_scale.z<<"],\"modelFatness\":"<<n.model_fatness;
+ *out << ",\"attitude\":"<<n.attitude<<",\"temporaryAttitude\":"<<n.attitude_temp;
+ *out << ",\"missions\":";ints(n.missions);
+ *out << ",\"fightTactic\":"<<n.fight_tactic<<",\"bodyStateOverride\":"<<n.bs_interruptable_override<<",\"npcType\":"<<n.npc_type;
  *out << ",\"flags\":"<<n.flags<<",\"routine\":";s(n.current_routine);
  *out << ",\"packed\":[";for(int i=0;i<9;i++){if(i)*out<<',';s(n.packed[i]);}*out<<']';
  *out << ",\"talents\":[";bool sep=false;for(auto& t:n.talents)if(t){if(sep)*out<<',';sep=true;*out<<'['<<t->talent<<','<<t->value<<','<<t->skill<<']';}*out<<']';
  *out << ",\"items\":[";sep=false; std::set<const VItem*> seen;
  auto item=[&](const std::shared_ptr<VItem>& i){if(!i || !seen.insert(i.get()).second)return;if(sep)*out<<',';sep=true;*out<<"{\"instance\":";s(i->instance);*out<<",\"amount\":"<<i->s_amount<<",\"flags\":"<<i->s_flags<<'}';};
  for(auto& i:n.items)item(i);for(auto& slot:n.slots)if(slot&&slot->used)item(slot->item);*out<<']';
+ *out<<",\"spellHotkeys\":[";sep=false;
+ for(size_t i=0;i<n.items.size();++i)if(n.items[i] && i<n.item_short_keys.size() && n.item_short_keys[i]>=0){
+  if(sep)*out<<',';sep=true;*out<<'[';s(n.items[i]->instance);*out<<','<<n.item_short_keys[i]<<']';
+ }*out<<']';
  *out<<",\"slots\":[";sep=false;for(auto& slot:n.slots)if(slot&&slot->used&&slot->item){if(sep)*out<<',';sep=true;*out<<'[';s(slot->name);*out<<',';s(slot->item->instance);*out<<']';}*out<<"]}";
 }
 int main(int argc,char** argv) { try {
  if(argc!=3)throw std::runtime_error("Usage: export_save save_directory output.json");
- SaveGame save(GameVersion::GOTHIC_2);save.load(argv[1]);std::ofstream f(argv[2]);out=&f;
+ SaveGame save(GameVersion::GOTHIC_2);save.load(argv[1]);std::ofstream f(argv[2]);out=&f;f<<std::setprecision(std::numeric_limits<float>::max_digits10);
  *out << "{\"format\":1,\"world\":";s(save.metadata.world);*out<<",\"date\":";s(save.metadata.save_date);*out<<",\"playSeconds\":"<<save.metadata.play_time_seconds<<",\"time\":["<<save.state.day<<','<<save.state.hour<<','<<save.state.minute<<"],\"symbols\":[";
  bool sep=false;for(auto& v:save.state.symbols){if(sep)*out<<',';sep=true;*out<<'[';s(v.name);*out<<',';ints(v.values);*out<<']';}*out<<"],\"infos\":[";
  sep=false;for(auto& v:save.state.infos){if(sep)*out<<',';sep=true;*out<<'[';s(v.name);*out<<','<<(v.told?"true":"false")<<']';}*out<<"],\"quests\":[";

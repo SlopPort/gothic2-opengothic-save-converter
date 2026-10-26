@@ -8,16 +8,16 @@ The Android graphics work lives separately in [opengothic-android-adreno610](htt
 
 ## Current status
 
-The public toolkit completed a fresh-workspace migration of one original save through a NEW game on the tested Android build, both supported worlds, offline finalization, and a native load/save/reload with the importer disabled. Character fields, accessories, journal records, known-dialog pairs, and guild-table data were checked through that round trip. See [validation details](docs/VALIDATION.md) for the precise scope.
+The earlier public revision `33441b5` completed one fresh-workspace migration and native load/save/reload on the matching Android build, including corrected player inventory quantities. That evidence covers the earlier player-focused pipeline, not the new all-NPC identity workflow.
 
-This is one tested fixture, not proof that every quest can be finished. Independent clean-checkout reproduction, additional source saves/script editions, and full-storyline testing remain pending. The matching engine was previously built; this test did not rebuild it from a clean checkout.
+Current development adds source-bound NPC identities and offline reconciliation of supported NPC script fields, inventory quantities, accessories, spell shortcuts, pose, attitudes, and talents. One fresh identity-based Android migration completed default finalization and a native load/save/reload with the importer disabled. Supported source NPC fields and quantities were checked before publication; the native resave preserved the checked player fields, exact player quantities, accessories, and spell shortcuts. Active-world NPC inventories can change during live AI simulation. See [validation details](docs/VALIDATION.md). Independent clean-checkout reproduction, additional source saves/script editions, and full-storyline testing remain pending.
 
 The supported workflow currently requires a **manual migration session in the matching engine**. It is not a one-click conversion of an arbitrary save folder. The original save is read by the tools; outputs go into a separate workspace and new save files.
 
 ### Implemented scope of the prototype
 
 - Script integer globals/arrays, journal entries, and known-dialog information.
-- Player and NPC attributes, talents, inventory migration, position, and selected equipment state. Offline reconciliation restores exact player inventory quantities before rebuilding player accessory pointers.
+- Source-identified NPC reconciliation in both supported worlds: exact inventory quantities, supported script fields, accessories, spell shortcuts, position/heading, model scale/fatness, attitudes, true guild, and talents. One engine round trip has been tested; live AI may subsequently change active-world NPC inventories.
 - Native world generation followed by offline restoration of loose world items, container contents, container/door locks, and the original guild-attitude table.
 - Available enable/count flags of uniquely matched triggers and a subset of uniquely matched movers. Some original animation state is only approximated.
 - Calendar/playtime normalization and player accessory-equipment pointers without reapplying stat bonuses, including stale-slot removal and two explicit source rings sharing a native stack.
@@ -28,7 +28,7 @@ The supported workflow currently requires a **manual migration session in the ma
 - Only a current `NEWWORLD` save with `NEWWORLD` and optional `OLDWORLD` data is supported. Addonworld, other current worlds, Gothic 1, mods, and arbitrary engine versions are unsupported.
 - The binary layout is restricted to the tested **OpenGothic format 56** and the pinned [Android fork revision](https://github.com/borsuczyna/OpenGothic-Android/tree/118afdc10d79a7f3357e28c6ee52f6fc2fba8586). A matching format number alone does not establish compatibility with another engine revision.
 - Exact AI queues, NPC news, routines, spawn scheduling, all interactions, and all dynamic world relationships are not reproduced. Duplicate or ambiguous object matches are skipped or rejected rather than treated as exact matches.
-- The engine inventory-clear operation retains equipped/mission items. Player quantities are corrected offline; similar NPC inventory overcounts were observed and are not yet reconciled.
+- The engine inventory-clear operation retains equipped/mission items. The default development path reconciles source-identified NPC quantities offline. The explicit `--legacy-player-only` fallback corrects only the player and leaves known NPC overcounts unresolved.
 - Trigger/mover restoration is partial; the full original engine behavior is not emulated. No full-storyline regression test has been performed.
 - The tested source text used CP1250. Other text encodings and game editions need validation. The original and migration sessions must use matching game scripts/data.
 
@@ -36,7 +36,7 @@ Keep independent backups. Treat the result as a save for testing, not as the onl
 
 ## Build the readers
 
-Requirements: a C++20 compiler, CMake 3.22+, Git, and Python 3.10+. ZenKit is fetched at a pinned revision and patched for packed-inventory parsing. No game files are needed to compile the tools.
+Requirements: a C++20 compiler, CMake 3.22+, Git, and Python 3.10+. ZenKit is fetched at a pinned revision and patched for packed-inventory parsing and NPC spell-hotkey serialization. No game files are needed to compile the tools.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -48,7 +48,7 @@ With a multi-configuration generator, executables may be in `build/Release` inst
 
 ## Migration workflow
 
-Read [the complete workflow](docs/WORKFLOW.md) before running it. It requires your own game data and a fresh migration session. No personal save, game archive, modified `GOTHIC.DAT`, snapshot, signing key, or compiled game asset is included in this repository.
+Read [the complete workflow](docs/WORKFLOW.md) before running it. Default finalization requires a fresh workspace and NEW migration game using an engine built with `patches/migration-identity.patch`. Older intermediates cannot acquire missing identities during offline finalization. It requires your own game data and a fresh migration session. No personal save, game archive, modified `GOTHIC.DAT`, snapshot, signing key, or compiled game asset is included in this repository.
 
 ```sh
 python convert.py prepare --game-dir /path/to/Gothic-II --save-dir /path/to/savegame1 --workspace work/session --tools-dir build
@@ -56,7 +56,9 @@ python convert.py prepare --game-dir /path/to/Gothic-II --save-dir /path/to/save
 python convert.py finalize --game-dir /path/to/Gothic-II --workspace work/session --tools-dir build --native-save /path/to/intermediate.sav --output /path/to/converted-test.sav
 ```
 
-Finalization normalizes the session, restores supported world state, generates any missing item templates from the local DAT, reconciles exact player inventory amounts, restores accessory pointers, and checks the native structure before publishing the output without overwriting an existing file. It does not certify quest logic or AI correctness. It verifies the original script fingerprint and compares final player fields, quantities, and accessory pointers against the source before publication. Structural guards use explicit exceptions and remain enabled under Python optimization mode (`-O`).
+Finalization normalizes the session, restores supported world state, generates missing item templates, reconciles source-identified NPC state and player inventory, and checks the result before atomic no-overwrite publication. Source identities bind the original DAT bytes and raw decoded-source JSON bytes; they detect mismatched inputs, not maliciously forged saves. Temporary migration-key entries are stripped from the active and visited worlds before final output. Generated DAT helpers remain part of the migration scripts.
+
+Use `--legacy-player-only` only to explicitly accept an incomplete older-intermediate workflow: all-NPC reconciliation and identity verification are skipped, while player checks remain. Structural guards use explicit exceptions and remain enabled under Python optimization mode (`-O`). Neither mode certifies quest logic or AI correctness.
 
 ## Check a native save
 
