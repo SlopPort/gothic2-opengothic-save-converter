@@ -32,7 +32,7 @@ The optional **Import and visit all supported worlds automatically** action impo
 ### Important limits
 
 - Only a current `NEWWORLD` save with `NEWWORLD` and optional `OLDWORLD` data is supported. Addonworld, other current worlds, Gothic 1, mods, and arbitrary engine versions are unsupported.
-- The binary layout is restricted to the tested **OpenGothic format 56** and the pinned [Android fork revision](https://github.com/borsuczyna/OpenGothic-Android/tree/118afdc10d79a7f3357e28c6ee52f6fc2fba8586). A matching format number alone does not establish compatibility with another engine revision.
+- The binary layout is restricted to the tested **OpenGothic format 56** and the pinned [Android fork revision](https://github.com/borsuczyna/OpenGothic-Android/tree/531ffa00d82bca5a728861e0b0812bf097b15c80). A matching format number alone does not establish compatibility with another engine revision.
 - Exact current/queued AI execution, NPC news, spawn scheduling, all interactions, and all dynamic world relationships are not reproduced. Restoring a named daily routine schedule does not resume the original in-progress AI state. Duplicate or ambiguous object matches are skipped or rejected rather than treated as exact matches.
 - The engine inventory-clear operation retains equipped/mission items. The default development path reconciles source-identified NPC quantities offline. The explicit `--legacy-player-only` fallback corrects only the player and leaves known NPC overcounts unresolved.
 - Trigger/mover restoration is partial; the full original engine behavior is not emulated. No full-storyline regression test has been performed.
@@ -55,6 +55,8 @@ With a multi-configuration generator, executables may be in `build/Release` inst
 ## Migration workflow
 
 Read [the complete workflow](docs/WORKFLOW.md) before running it. Default finalization requires a fresh workspace and NEW migration game using an engine built with `patches/migration-identity.patch`, followed by `patches/migration-routines.patch`. Older intermediates cannot acquire missing identities during offline finalization. Preparation rejects unsupported world scope and requires exactly one explicitly player-marked NPC in the current world; it does not guess a player from incomplete data. It requires your own game data and a fresh migration session. No personal save, game archive, modified `GOTHIC.DAT`, snapshot, signing key, or compiled game asset is included in this repository.
+
+On Windows, use ASCII-only paths and keep the compiler runtime directory on `PATH`.
 
 ```sh
 python convert.py prepare --game-dir /path/to/Gothic-II --save-dir /path/to/savegame1 --workspace work/session --tools-dir build

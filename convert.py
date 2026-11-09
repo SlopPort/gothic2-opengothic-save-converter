@@ -13,7 +13,12 @@ from dat_symbols import parse_dat
 ROOT=Path(__file__).resolve().parent
 
 def run(*args):
-    subprocess.run([str(x) for x in args],check=True)
+    if sys.platform=='win32' and any(not str(x).isascii() for x in args):
+        raise SystemExit('Non-ASCII paths are not supported by the Windows readers; use a path with ASCII characters only.')
+    result=subprocess.run([str(x) for x in args])
+    if result.returncode in (127,3221225781,-1073741515):
+        raise SystemExit(f'{args[0]} could not start: its runtime DLLs were not found. Add the compiler runtime directory to PATH.')
+    result.check_returncode()
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);sub=p.add_subparsers(dest='command',required=True)
