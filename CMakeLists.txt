@@ -17,7 +17,7 @@ FetchContent_GetProperties(zenkit)
 if(NOT zenkit_POPULATED)
   FetchContent_Populate(zenkit)
 endif()
-foreach(PATCH_NAME zenkit-packed-inventory zenkit-npc-hotkeys)
+foreach(PATCH_NAME zenkit-packed-inventory zenkit-npc-hotkeys zenkit-arrow-ai)
  set(READER_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/patches/${PATCH_NAME}.patch")
  execute_process(COMMAND "${GIT_EXECUTABLE}" apply --check --reverse "${READER_PATCH}"
   WORKING_DIRECTORY "${zenkit_SOURCE_DIR}" RESULT_VARIABLE ALREADY_PATCHED OUTPUT_QUIET ERROR_QUIET)
