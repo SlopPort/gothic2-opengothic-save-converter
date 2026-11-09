@@ -31,7 +31,7 @@ The optional **Import and visit all supported worlds automatically** action impo
 
 ### Important limits
 
-- Only a current `NEWWORLD` save with `NEWWORLD` and optional `OLDWORLD` data is supported. Addonworld, other current worlds, Gothic 1, mods, and arbitrary engine versions are unsupported.
+- Only a save whose current world is `NEWWORLD` or `OLDWORLD`, with data for those two worlds, is supported. Addonworld, other current worlds, Gothic 1, mods, and arbitrary engine versions are unsupported.
 - The binary layout is restricted to the tested **OpenGothic format 56** and the pinned [Android fork revision](https://github.com/borsuczyna/OpenGothic-Android/tree/531ffa00d82bca5a728861e0b0812bf097b15c80). A matching format number alone does not establish compatibility with another engine revision.
 - Exact current/queued AI execution, NPC news, spawn scheduling, all interactions, and all dynamic world relationships are not reproduced. Restoring a named daily routine schedule does not resume the original in-progress AI state. Duplicate or ambiguous object matches are skipped or rejected rather than treated as exact matches.
 - The engine inventory-clear operation retains equipped/mission items. The default development path reconciles source-identified NPC quantities offline. The explicit `--legacy-player-only` fallback corrects only the player and leaves known NPC overcounts unresolved.
