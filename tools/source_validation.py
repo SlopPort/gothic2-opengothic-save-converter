@@ -1,8 +1,8 @@
 """Reject unsupported or ambiguous source populations before generating an import."""
 def validate_source(source):
     worlds=source.get('worlds')
-    if source.get('world')!='NEWWORLD' or not isinstance(worlds,dict) or 'NEWWORLD' not in worlds or set(worlds)-{'NEWWORLD','OLDWORLD'}:
-        raise ValueError('Supported scope: current NEWWORLD with NEWWORLD/OLDWORLD saves only')
+    if source.get('world') not in ('NEWWORLD','OLDWORLD') or not isinstance(worlds,dict) or source['world'] not in worlds or set(worlds)-{'NEWWORLD','OLDWORLD'}:
+        raise ValueError('Supported scope: current NEWWORLD or OLDWORLD with NEWWORLD/OLDWORLD saves only')
     heroes=[]
     for world,records in worlds.items():
         if not isinstance(records,list):raise ValueError('Source NPC population must be an array')

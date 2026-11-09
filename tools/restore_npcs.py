@@ -18,7 +18,7 @@ def restore_npcs(entries,source,fingerprint,byname,extra_templates=None,restart_
     worlds={}
     for world in source['worlds']:
         name=world.lower()+'.zen'
-        worlds[world]=archive(entries['worlds/'+name+'.zip']) if world!='NEWWORLD' else {
+        worlds[world]=archive(entries['worlds/'+name+'.zip']) if world!=source.get('world','NEWWORLD') else {
             path:data for path,data in entries.items() if path.startswith('worlds/'+name+'/')}
     mappings={world:map_npcs(files,world,source,fingerprint,byname) for world,files in worlds.items()}
     templates=dict(extra_templates or {})
@@ -54,7 +54,7 @@ def restore_npcs(entries,source,fingerprint,byname,extra_templates=None,restart_
             changed+=before!=restored
             files[node+'inventory']=restored
         report[world]=dict(source_npcs=len(source['worlds'][world]),mapped_records=len(mappings[world]),inventories_changed=changed)
-        if world=='NEWWORLD':result.update(files)
+        if world==source.get('world','NEWWORLD'):result.update(files)
         else:result['worlds/'+world.lower()+'.zen.zip']=pack_visited_world(files)
     return result,dict(missing=[],worlds=report)
 
@@ -64,7 +64,7 @@ def verify_npcs(entries,source,fingerprint,byname,restart_ai=False):
         raise ValueError('Saved AI restart requires source AI metadata for every NPC')
     ticks=struct.unpack_from('<Q',entries['game/session'])[0] if restart_ai else None
     for world in source['worlds']:
-        files=entries if world=='NEWWORLD' else archive(entries['worlds/'+world.lower()+'.zen.zip'])
+        files=entries if world==source.get('world','NEWWORLD') else archive(entries['worlds/'+world.lower()+'.zen.zip'])
         for node,npc in map_npcs(files,world,source,fingerprint,byname):
             verify_npc_script_state(files[node+'data'],npc,byname)
             if restart_ai and 'ai' in npc:verify_ai_restart(files[node+'data'],npc,byname,ticks)

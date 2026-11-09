@@ -70,4 +70,6 @@ Revision `531ffa00d82bca5a728861e0b0812bf097b15c80` still uses save format 56, a
 
 A second source save (`savegame2`) also completed the fresh 0.9.2 migration, strict finalization, load, resave, and reload. Five New World NPC inventories gained animation props or food after the resave. In that save, enemy fire magic kills the idle hero about two minutes after loading; this was seen in both the converted save and its resave.
 
-The reader patch `zenkit-arrow-ai.patch` parses flying-arrow records. A player stored only inside such a record is now exported. Saves whose current world is OLDWORLD remain unsupported.
+The reader patch `zenkit-arrow-ai.patch` parses flying-arrow records. A player stored only inside such a record is now exported, and this also recovers one additional dead NPC in the Old World of `savegame1` and `savegame2`.
+
+With that reader, `savegame3` (current world OLDWORLD, hero in a fight at 96/220 HP) and `savegame1` each completed a fresh 0.9.2 migration, strict finalization, load, resave, and reload on one Redmi Note 8. The importer keeps the hero immortal and NPCs frozen until the migration save, then normal play has neither. Inventory changes after the resave were 3 and 12 single-item differences, all small props, food, or flasks from live NPC behavior. Storyline play remains untested.

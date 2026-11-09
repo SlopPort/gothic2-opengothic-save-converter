@@ -14,8 +14,12 @@ class SourcePopulationTests(unittest.TestCase):
         for current in (True,False):
             s=self.source();s['worlds']['NEWWORLD'][0]['player']=current;s['worlds']['OLDWORLD'][0]['player']=True
             with self.subTest(current=current),self.assertRaisesRegex(ValueError,'exactly one player'):validate_source(s)
+    def test_current_old_world_is_supported(self):
+        s=self.source();s['world']='OLDWORLD';s['worlds']['NEWWORLD'][0]['player']=False;s['worlds']['OLDWORLD'][0]['player']=True
+        self.assertIs(validate_source(s),s['worlds']['OLDWORLD'][0])
+
     def test_unsupported_scope_is_rejected(self):
-        for world in ('OLDWORLD','ADDONWORLD',None):
+        for world in ('ADDONWORLD',None):
             s=self.source();s['world']=world
             with self.subTest(world=world),self.assertRaisesRegex(ValueError,'Supported scope'):validate_source(s)
         s=self.source();s['worlds']['ADDONWORLD']=[]
