@@ -16,11 +16,11 @@ def main():
     if args.input.resolve()==args.output.resolve():raise ValueError('Input and output must differ')
     byname=parse_dat(args.game_dir/'_work/Data/Scripts/_compiled/GOTHIC.DAT')['byname']
     source=json.loads((args.workspace/'source-save.json').read_text())
-    heroes=[npc for npc in source['worlds']['NEWWORLD'] if npc['player']]
+    heroes=[npc for npc in source['worlds'][source.get('world','NEWWORLD')] if npc['player']]
     if len(heroes)!=1:raise ValueError('Expected exactly one source player')
     entries=archive(args.input.read_bytes())
     hero_symbol=byname['PC_HERO']['index']
-    paths=[name for name,data in entries.items() if name.startswith('worlds/newworld.zen/npc/')
+    paths=[name for name,data in entries.items() if name.startswith('worlds/'+source.get('world','NEWWORLD').lower()+'.zen/npc/')
            and name.endswith('/data') and len(data)>=4 and struct.unpack_from('<I',data)[0]==hero_symbol]
     if len(paths)!=1:raise ValueError('Expected exactly one native player record')
     inventory_path=paths[0][:-4]+'inventory'

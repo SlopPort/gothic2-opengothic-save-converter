@@ -21,7 +21,7 @@ int main(int argc,char** argv) {try {
  check(npc->level==n->level&&npc->exp==n->xp&&npc->exp_next==n->xp_next_level&&npc->lp==n->lp&&int(npc->guild)==n->guild);
  for(int i=0;i<8;i++){check(npc->attribute[i]==n->attributes[i]);check(npc->protection[i]==n->protection[i]);}for(int i=0;i<4;i++)check(npc->hitchance[i+1]==n->hit_chance[i]);for(int i=0;i<100;i++)check(npc->aivar[i]==n->aivar[i]);characters++;
  };
- std::function<void(const std::shared_ptr<VirtualObject>&)> visit=[&](const std::shared_ptr<VirtualObject>& v){if(!v)return;emit(std::dynamic_pointer_cast<VNpc>(v));for(auto& c:v->children)visit(c);};
+ std::function<void(const std::shared_ptr<VirtualObject>&)> visit=[&](const std::shared_ptr<VirtualObject>& v){if(!v)return;emit(std::dynamic_pointer_cast<VNpc>(v));if(auto arrow=std::dynamic_pointer_cast<AiArrow>(v->ai)){auto owner=std::dynamic_pointer_cast<VNpc>(arrow->owner);for(int depth=0;owner&&depth<16;++depth){if(owner->player)emit(owner);owner=std::dynamic_pointer_cast<VNpc>(owner->enemy);}}for(auto& c:v->children)visit(c);};
  for(auto& v:world->world_vobs)visit(v);for(auto& n:world->npcs)emit(n);for(auto& s:world->npc_spawns)emit(s.npc);
  }
  std::cout<<"PASS: "<<values<<" global values (including arrays), "<<characters<<" NPC helper functions, original symbol indices preserved.\n";

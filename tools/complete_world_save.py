@@ -16,12 +16,12 @@ header=entries['header']
 if not header.startswith(b'OpenGothic/Save\0') or struct.unpack_from('<H',header,len(b'OpenGothic/Save\0'))[0]!=56:
  raise ValueError('Only the tested OpenGothic format 56 is supported')
 original=json.loads((ROOT/'source-save.json').read_text())
-if original['world']!='NEWWORLD' or set(original['worlds'])-{'NEWWORLD','OLDWORLD'}:
- raise ValueError('This prototype supports a New World save with New World/Old World data only')
+if original['world'] not in ('NEWWORLD','OLDWORLD') or set(original['worlds'])-{'NEWWORLD','OLDWORLD'}:
+ raise ValueError('This prototype supports New World and Old World saves only')
 for key in ('NEWWORLD','OLDWORLD'):
  if key not in original['worlds']:continue
  name=key.lower()+'.zen'
- worlds[key]=archive(entries['worlds/'+name+'.zip']) if key=='OLDWORLD' else {n:v for n,v in entries.items() if n.startswith('worlds/'+name+'/')}
+ worlds[key]=archive(entries['worlds/'+name+'.zip']) if key!=original['world'] else {n:v for n,v in entries.items() if n.startswith('worlds/'+name+'/')}
 parsed=parse_dat(args.game_dir/'_work/Data/Scripts/_compiled/GOTHIC.DAT')
 byname=parsed['byname']
 templates={}
@@ -119,9 +119,9 @@ for key,files in worlds.items():
  for _ in loose:item(r)
  r.end()
  report[key]=dict(loose_items=len(loose),containers=len(containers),doors=len(doors),container_stacks=sum(len(v['items']) for v in containers),matches=matches,triggers_restored=trigger_matches,triggers_unmatched=trigger_skipped,movers_restored=mover_matches)
- if key=='NEWWORLD':entries.update(files)
+ if key==original['world']:entries.update(files)
  else:
-  entries['worlds/oldworld.zen.zip']=pack_visited_world(files)
+  entries['worlds/'+key.lower()+'.zen.zip']=pack_visited_world(files)
 # Restore the original guild relationship table without changing the extra engine guilds.
 entries['game/quests']=restore_guild_table(entries['game/quests'],(ROOT/'guild-attitudes.bin').read_bytes())
 h=entries['header'];r=Reader(h,len(b'OpenGothic/Save\0')+2);r.s();entries['header']=h[:len(b'OpenGothic/Save\0')+2]+pack_s(b'ORIGINAL SAVE IMPORT (EXPERIMENTAL)')+h[r.p:]

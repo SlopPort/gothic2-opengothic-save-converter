@@ -4,7 +4,7 @@ This is a prototype workflow for developers. The earlier public revision complet
 
 ## 1. Prepare local inputs
 
-Rebuild the C++ readers as described in the README, including the ZenKit NPC hotkey patch. Create a fresh workspace for the identity workflow; do not reuse an older decoded snapshot or generated mod. Use original Gothic II: Night of the Raven data and the original save directory from the same script/data version. The current world must be NEWWORLD; only NEWWORLD and OLDWORLD are handled. Preparation validates that exactly one NPC is explicitly marked as the player in the current world and rejects missing, duplicate, or wrong-world player records rather than guessing.
+Rebuild the C++ readers as described in the README, including the ZenKit NPC hotkey patch. Create a fresh workspace for the identity workflow; do not reuse an older decoded snapshot or generated mod. Use original Gothic II: Night of the Raven data and the original save directory from the same script/data version. The current world must be NEWWORLD or OLDWORLD; only those two worlds are handled. An OLDWORLD source needs the automatic tour, because a new game starts in NEWWORLD. Preparation validates that exactly one NPC is explicitly marked as the player in the current world and rejects missing, duplicate, or wrong-world player records rather than guessing.
 
 ```sh
 python convert.py prepare --game-dir /path/to/original-game --save-dir /path/to/original-save --workspace work/session --tools-dir build

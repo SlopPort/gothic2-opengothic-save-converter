@@ -57,7 +57,7 @@ int main(int argc,char** argv) { try {
  auto w=save.load_world(name);if(!w)continue;std::cerr<<name<<": "<<w->npcs.size()<<" NPCs, "<<w->world_vobs.size()<<" roots\n";if(sep)*out<<',';sep=true;s(name);*out<<":[";
  // Emit the complete NPC population, including the hero, without changing the source save.
  bool ns=false;std::set<const VNpc*> seenNpc;auto emit=[&](const std::shared_ptr<VNpc>& n){if(n&&seenNpc.insert(n.get()).second){if(ns)*out<<',';ns=true;npc(*n);}};
- std::function<void(const std::shared_ptr<VirtualObject>&)> visit=[&](const std::shared_ptr<VirtualObject>& v){if(!v)return;emit(std::dynamic_pointer_cast<VNpc>(v));for(auto& c:v->children)visit(c);};
+ std::function<void(const std::shared_ptr<VirtualObject>&)> visit=[&](const std::shared_ptr<VirtualObject>& v){if(!v)return;emit(std::dynamic_pointer_cast<VNpc>(v));if(auto arrow=std::dynamic_pointer_cast<AiArrow>(v->ai)){auto owner=std::dynamic_pointer_cast<VNpc>(arrow->owner);for(int depth=0;owner&&depth<16;++depth){if(owner->player)emit(owner);owner=std::dynamic_pointer_cast<VNpc>(owner->enemy);}}for(auto& c:v->children)visit(c);};
  for(auto& v:w->world_vobs)visit(v);for(auto& n:w->npcs)emit(n);for(auto& sp:w->npc_spawns)emit(sp.npc);*out<<']';
  }*out<<"}}";f.flush();if(!f)throw std::runtime_error("Output write failed");
  return 0;

@@ -24,8 +24,9 @@ function status() {
         capabilities:{helper:!!debug.signature('OGI_IMPORT_GLOBALS'),info:typeof debug.setInfoKnown,
             inventory:debug.signature('NPC_CLEARINVENTORY')}, importedWorlds};
 }
+function god(on) {if(typeof debug.god==='function')debug.god(on);}
 function thaw() { for (const n of frozen) if(n.valid) n.setPuppet(false); frozen=[]; }
-function fail(e) {error=String(e);phase='failed';active=false;queue=[];transition=null;automatic=false;thaw();console.error(error);}
+function fail(e) {error=String(e);phase='failed';active=false;queue=[];transition=null;automatic=false;thaw();god(false);console.error(error);}
 function enqueue(fn) {queue.push(fn);total++;}
 function applyNpc(npc, saved) {
     if(typeof npc.setMigrationKey!=='function')throw new Error('Migration identity engine patch is required');
@@ -77,7 +78,7 @@ function importWorld(name, onComplete) {
     });
     enqueue(()=>{
         for(const n of present)if(n.valid&&!used.has(n.id)){n.remove();report.removed++;}
-        thaw();importedWorlds[name]=true;phase='world complete';
+        if(!onComplete)thaw();importedWorlds[name]=true;phase='world complete';
         const mask=debug.symbol('OGI_IMPORT_MASK');
         if(mask)debug.setSymbol('OGI_IMPORT_MASK',mask.value | (name==='NEWWORLD'?1:2));
         if(onComplete)onComplete();
@@ -86,12 +87,15 @@ function importWorld(name, onComplete) {
 function travel(target, onReady) {
     if(transition)throw new Error('A world transition is already pending');
     if(worldName()===target){enqueue(onReady);return;}
-    thaw();transition={target,onReady,ready:false,started:Date.now()};phase='loading '+target;
+    // Characters stay frozen while the level changes: their handles end with the world, and a stored fight must not resume.
+    frozen=[];transition={target,onReady,ready:false,started:Date.now()};phase='loading '+target;
     world.changeLevel(target.toLowerCase()+'.zen','START');
 }
 function finishTour() {
     travel(source.world,()=>{
         applyNpc(player,heroSource);world.setTime(source.time[1],source.time[2]);phase='player restored';
+        // A fight stored in the source must not kill the hero before the migration save is made.
+        for(const n of npcs.nearby(10000000)){n.setPuppet(true);frozen.push(n);}
     });
 }
 function continueTour() {
@@ -117,10 +121,11 @@ function begin(autoVisit=false) {
     if(!source.migrationId)throw new Error('Prepare a fresh migration workspace');
     if(Object.values(source.worlds).some(records=>records.some(n=>n.routineFunction))&&typeof player.setMigrationRoutine!=='function')
         throw new Error('Apply patches/migration-routines.patch to the migration engine');
-    if(worldName()!==source.world)throw new Error('Begin in the source current world');
+    if(worldName()!==source.world&&!autoVisit)throw new Error('Begin in the source current world, or use automatic visitation');
     if(autoVisit&&Object.keys(source.worlds).some(name=>!['NEWWORLD','OLDWORLD'].includes(name)))
         throw new Error('Automatic visitation supports New World and Old World only');
-    automatic=autoVisit;active=true;phase='globals';
+    // A fight stored in the source must not kill the hero before the migration save is made.
+    god(true);automatic=autoVisit;active=true;phase='globals';
     enqueue(()=>{call('OGI_IMPORT_GLOBALS');report.globals=source.symbols.length;});
     for(const q of source.quests)enqueue(()=>{
         quests.create(q.title,q.title,q.section);
@@ -133,8 +138,8 @@ function begin(autoVisit=false) {
             report.infos++;
         }
     });
-    enqueue(()=>{applyNpc(player,heroSource);world.setTime(source.time[1],source.time[2]);phase='hero ready';});
-    enqueue(()=>importWorld(source.world,automatic ? continueTour : null));
+    // The hero's coordinates are valid only in the source world, so they are applied after travelling there.
+    enqueue(()=>travel(source.world,()=>{applyNpc(player,heroSource);world.setTime(source.time[1],source.time[2]);phase='hero ready';importWorld(source.world,automatic ? continueTour : null);}));
 }
 events.on('tick',()=>{
     resetIfFreshGame();
@@ -192,5 +197,5 @@ events.on('net:message',({peer,data})=>{
     }catch(e){net.send(peer,JSON.stringify({error:String(e)}));}
 });
 }
-events.on('shutdown',()=>{thaw();if(config.enableRemoteControl)net.close();});
+events.on('shutdown',()=>{thaw();god(false);if(config.enableRemoteControl)net.close();});
 console.log('Experimental Steam save importer ready; no changes until explicitly started.');

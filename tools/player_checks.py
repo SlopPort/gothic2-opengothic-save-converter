@@ -9,10 +9,10 @@ from spell_slots import restore_spell_slots
 
 
 def verify_player(entries,source,byname):
-    heroes=[npc for npc in source['worlds']['NEWWORLD'] if npc['player']]
+    heroes=[npc for npc in source['worlds'][source.get('world','NEWWORLD')] if npc['player']]
     if len(heroes)!=1:raise ValueError('Expected exactly one source player')
     hero=heroes[0];symbol=byname['PC_HERO']['index']
-    paths=[name for name,data in entries.items() if name.startswith('worlds/newworld.zen/npc/')
+    paths=[name for name,data in entries.items() if name.startswith('worlds/'+source.get('world','NEWWORLD').lower()+'.zen/npc/')
            and name.endswith('/data') and len(data)>=4 and struct.unpack_from('<I',data)[0]==symbol]
     if len(paths)!=1:raise ValueError('Expected exactly one native player')
     native=npc_script_state(entries[paths[0]])
